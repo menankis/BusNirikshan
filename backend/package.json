@@ -1,0 +1,23 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Backend for Buss Nirikshan Project",
+  "homepage": "https://github.com/menankis/BusNirikshan#readme",
+  "bugs": {
+    "url": "https://github.com/menankis/BusNirikshan/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/menankis/BusNirikshan.git"
+  },
+  "license": "ISC",
+  "author": "Maulik Sharma",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
