@@ -1,0 +1,52 @@
+use BusNirikshan
+
+db.createCollection("users", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["name", "email", "passwordHash", "role", "createdAt", "updatedAt"],
+      properties: {
+        name: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        email: {
+          bsonType: "string",
+          pattern: "^.+@.+\\..+$", // Basic email regex validation
+          description: "must be a valid email string and is required"
+        },
+        passwordHash: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        role: {
+          enum: ["passenger", "driver", "admin"],
+          description: "can only be 'passenger', 'driver', or 'admin' and is required"
+        },
+        rtc: {
+          bsonType: ["string", "null"],
+          enum: ["GSRTC", "MSRTC", "RSRTC", null],
+          description: "can only be one of the specified RTCs or null"
+        },
+        isActive: {
+          bsonType: "bool",
+          description: "must be a boolean"
+        },
+        createdAt: {
+          bsonType: "date",
+          description: "must be a date and is required"
+        },
+        updatedAt: {
+          bsonType: "date",
+          description: "must be a date and is required"
+        }
+      }
+    }
+  }
+})
+
+// 1. Create unique index on email
+db.users.createIndex({ email: 1 }, { unique: true })
+
+// 2. Create standard index on role
+db.users.createIndex({ role: 1 })
