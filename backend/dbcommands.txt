@@ -50,3 +50,43 @@ db.users.createIndex({ email: 1 }, { unique: true })
 
 // 2. Create standard index on role
 db.users.createIndex({ role: 1 })
+
+
+
+
+
+db.createCollection("refreshtokens", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["userId", "token", "expiresAt", "createdAt"],
+      properties: {
+        userId: {
+          bsonType: "objectId",
+          description: "must be an ObjectId referencing the user and is required"
+        },
+        token: {
+          bsonType: "string",
+          description: "must be a string (hashed token) and is required"
+        },
+        expiresAt: {
+          bsonType: "date",
+          description: "must be a date and is required for TTL"
+        },
+        createdAt: {
+          bsonType: "date",
+          description: "must be a date and is required"
+        }
+      }
+    }
+  }
+})
+
+// 1. Unique index on the token to prevent duplicates
+db.refreshtokens.createIndex({ token: 1 }, { unique: true })
+
+// 2. TTL Index: Tells MongoDB to delete the document when the current time reaches the 'expiresAt' value
+db.refreshtokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+
+// 3. Index on userId to quickly find all active sessions for a specific user
+db.refreshtokens.createIndex({ userId: 1 })

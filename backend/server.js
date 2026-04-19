@@ -4,6 +4,7 @@ const morgan = require("morgan");
 const dotenv = require("dotenv");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
+const cookieParser = require("cookie-parser");
 
 const authRoutes = require("./routes/auth")
 
@@ -13,6 +14,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(morgan("dev"));
+app.use(cookieParser())
 
 app.use("/api/auth", authRoutes);
 

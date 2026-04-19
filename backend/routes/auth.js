@@ -1,8 +1,10 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
-const User = require("../models/user");
 const dotenv = require("dotenv")
 const jwt = require("jsonwebtoken")
+
+const User = require("../models/user");
+const RefreshToken = require("../models/refreshtoken")
 
 dotenv.config();
 
@@ -50,18 +52,45 @@ router.post("/login", async (req, res) => {
     }
 
 
-    const access_token = jwt.sign({name: user.name,
+    const access_token = jwt.sign({userId: user._id,
+                            name: user.name,
                             email: user.email, 
                             role: user.role, 
                             rtc: user.rtc, 
                             isActive: user.isActive}, ACCESS_TOKEN_SECRET, {expiresIn: "15min"});
 
-    const refresh_token = jwt.sign({email: user.email}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
+    const refresh_token = jwt.sign({userId: user._id}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
+    
+    await RefreshToken.updateOne(
+        { userId: user._id},
+        {
+          token: refresh_token,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        },
+        { upsert: true, new: true }
+    );
 
 
-    res.status(200).json({message: "Login successful", access_token: access_token, refresh_token: refresh_token});
+    res.cookie("refresh_token", refresh_token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.status(200).json({message: "Login successful", access_token: access_token});
 });
 
+
+router.post("/logout", async (req, res) => {
+    const refresh_token = req.cookies.refresh_token;
+    if(!refresh_token){
+        return res.status(401).json({message: "No refresh token found"});
+    }
+    await RefreshToken.deleteOne({token: refresh_token});
+    res.clearCookie("refresh_token");
+    res.status(200).json({message: "Logout successful"});
+});
 
 
 module.exports = router;
