@@ -59,11 +59,12 @@ router.post("/login", async (req, res) => {
                             rtc: user.rtc, 
                             isActive: user.isActive}, ACCESS_TOKEN_SECRET, {expiresIn: "15min"});
 
-    const refresh_token = jwt.sign({userId: user._id}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
+    const refresh_token = jwt.sign({userId: user._id, email: user.email}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
     
     await RefreshToken.updateOne(
         { userId: user._id},
         {
+          email: user.email,
           token: refresh_token,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         },
@@ -92,5 +93,62 @@ router.post("/logout", async (req, res) => {
     res.status(200).json({message: "Logout successful"});
 });
 
+
+router.post("/refresh", async (req, res) => {
+    const refresh_token = req.cookies.refresh_token;
+    if(!refresh_token){
+        return res.status(401).json({message: "No refresh token found"});
+    }
+    
+    const tokenDoc = await RefreshToken.findOne({token: refresh_token});
+    if(!tokenDoc){
+        return res.status(403).json({message: "Invalid refresh token"});
+    }
+
+    try {
+        const decoded = jwt.verify(refresh_token, REFRESH_TOKEN_SECRET);
+        
+        const user = await User.findById(decoded.userId);
+        if(!user) {
+            return res.status(403).json({message: "User not found"});
+        }
+
+        const new_access_token = jwt.sign({
+            userId: user._id,
+            name: user.name,
+            email: user.email, 
+            role: user.role, 
+            rtc: user.rtc, 
+            isActive: user.isActive
+        }, ACCESS_TOKEN_SECRET, {expiresIn: "15min"});
+
+        const new_refresh_token = jwt.sign({userId: user._id, email: user.email}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
+        
+        await RefreshToken.updateOne(
+            { userId: user._id },
+            {
+              email: user.email,
+              token: new_refresh_token,
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            },
+            { upsert: true, new: true }
+        );
+
+        res.cookie("refresh_token", new_refresh_token, {
+            httpOnly: true,
+            secure: false,
+            sameSite: "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.status(200).json({
+            message: "Token refreshed successfully", 
+            access_token: new_access_token
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(403).json({message: "Invalid or expired refresh token"});
+    }
+});
 
 module.exports = router;

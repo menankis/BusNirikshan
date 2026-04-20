@@ -6,6 +6,11 @@ const refreshTokenSchema = new mongoose.Schema({
     ref: 'User', // Creates a relationship with your User model
     required: true 
   },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true
+  },
   token: { 
     type: String, 
     required: true, 

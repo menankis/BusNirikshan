@@ -59,11 +59,16 @@ db.createCollection("refreshtokens", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["userId", "token", "expiresAt", "createdAt"],
+      required: ["userId", "email", "token", "expiresAt", "createdAt"],
       properties: {
         userId: {
           bsonType: "objectId",
           description: "must be an ObjectId referencing the user and is required"
+        },
+        email: {
+          bsonType: "string",
+          pattern: "^.+@.+\\..+$", // Basic email regex validation
+          description: "must be a valid email string and is required"
         },
         token: {
           bsonType: "string",
