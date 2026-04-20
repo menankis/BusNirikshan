@@ -3,7 +3,7 @@ Passengers track buses on a live map. Drivers update location every 30 sec. via 
 
 ## Group 2:
 - Menanki Shekhawat(2023BTECH048)
-- Maulik Sharma(2023BTECH049)
+- Maulik Sharma(2023BTECH047)
 - Shubham Jain(2023BTECH079)
 - Pakhi Sharma(2023BTECH055)
 
@@ -23,3 +23,85 @@ Passengers track buses on a live map. Drivers update location every 30 sec. via 
 - WebSockets / SSE
 - Geospatial Queries (2dsphere)
 - Load Testing & Horizontal Scaling
+
+## API Documentation
+
+### Authentication (`/api/auth`)
+
+#### 1. Register a new user
+- **Endpoint**: `POST /api/auth/register`
+- **Body**: 
+  ```json
+  {
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "password": "StrongPassword123!",
+    "role": "passenger",
+    "rtc": "example_rtc"
+  }
+  ```
+- **Responses**:
+  - `201 Created`: User successfully registered.
+  - `400 Bad Request`: User already exists or password doesn't meet security requirements (must be >8 chars, include uppercase, lowercase, number, and special character).
+  - `500 Internal Server Error`: Generic server error.
+
+#### 2. Login
+- **Endpoint**: `POST /api/auth/login`
+- **Body**: 
+  ```json
+  {
+    "email": "jane@example.com",
+    "password": "StrongPassword123!"
+  }
+  ```
+- **Responses**:
+  - `200 OK`: Login successful. Returns `access_token` and sets an `HttpOnly` cookie for `refresh_token`.
+  - `400 Bad Request`: Email and password are required.
+  - `401 Unauthorized`: Invalid username or password.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 3. Logout
+- **Endpoint**: `POST /api/auth/logout`
+- **Cookies Required**: `refresh_token`
+- **Responses**:
+  - `200 OK`: Logout successful. Deletes the refresh token from the database and clears the HTTP cookie.
+  - `401 Unauthorized`: No refresh token found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 4. Refresh Token
+- **Endpoint**: `POST /api/auth/refresh`
+- **Cookies Required**: `refresh_token`
+- **Responses**:
+  - `200 OK`: Token refreshed successfully. Returns a new `access_token` and updates the `HttpOnly` cookie with a new `refresh_token`.
+  - `401 Unauthorized`: No refresh token found.
+  - `403 Forbidden`: Invalid or expired refresh token. 
+  - `500 Internal Server Error`: Generic server error.
+
+#### 5. Forgot Password
+- **Endpoint**: `POST /api/auth/forgot-password`
+- **Body**:
+  ```json
+  {
+    "email": "jane@example.com"
+  }
+  ```
+- **Responses**:
+  - `200 OK`: Password reset link sent to your email.
+  - `400 Bad Request`: Email is required.
+  - `404 Not Found`: User not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 6. Reset Password
+- **Endpoint**: `POST /api/auth/reset-password`
+- **Body**:
+  ```json
+  {
+    "token": "token_received_in_email",
+    "newPassword": "NewStrongPassword123!"
+  }
+  ```
+- **Responses**:
+  - `200 OK`: Password reset successful.
+  - `400 Bad Request`: New password does not meet security requirements or is the same as the old password.
+  - `403 Forbidden`: Invalid or expired reset token, or user not found.
+  - `500 Internal Server Error`: Generic server error.
