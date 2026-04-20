@@ -1,14 +1,28 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
-const dotenv = require("dotenv")
-const jwt = require("jsonwebtoken")
+const dotenv = require("dotenv");
+const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 
 const User = require("../models/user");
-const RefreshToken = require("../models/refreshtoken")
+const RefreshToken = require("../models/refreshtoken");
+const PasswordResetToken = require("../models/passwordresettoken");
 
 dotenv.config();
 
 const router = express.Router();
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT, 10),
+  secure: process.env.SMTP_AUTH == "true",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+
+
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10) || 10;
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;

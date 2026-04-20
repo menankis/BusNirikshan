@@ -95,3 +95,50 @@ db.refreshtokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 // 3. Index on userId to quickly find all active sessions for a specific user
 db.refreshtokens.createIndex({ userId: 1 })
+
+
+db.createCollection("passwordresettokens", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["userId", "email", "token", "expiresAt", "used", "createdAt"],
+      properties: {
+        userId: {
+          bsonType: "objectId",
+          description: "must be an ObjectId referencing the user and is required"
+        },
+        email: {
+          bsonType: "string",
+          pattern: "^.+@.+\\..+$", // Basic email regex validation
+          description: "must be a valid email string and is required"
+        },
+
+        token: {
+          bsonType: "string",
+          description: "must be a string (hashed token) and is required"
+        },
+        expiresAt: {
+          bsonType: "date",
+          description: "must be a date and is required for TTL"
+        },
+        used: {
+          bsonType: "bool",
+          description: "must be a boolean to track if the token was consumed"
+        },
+        createdAt: {
+          bsonType: "date",
+          description: "must be a date and is required"
+        }
+      }
+    }
+  }
+})
+
+// 1. Unique index to ensure tokens cannot be duplicated
+db.passwordresettokens.createIndex({ token: 1 }, { unique: true })
+
+// 2. TTL Index: Tells MongoDB to automatically delete the document when the current time reaches 'expiresAt'
+db.passwordresettokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+
+// 3. Index on userId to quickly find all active sessions for a specific user
+db.passwordresettokens.createIndex({ userId: 1 })
