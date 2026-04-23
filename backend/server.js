@@ -7,7 +7,7 @@ const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 
 const authRoutes = require("./routes/auth")
-
+const userRoutes = require("./routes/user")
 
 const app = express();
 
@@ -17,6 +17,7 @@ app.use(morgan("dev"));
 app.use(cookieParser())
 
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
 dotenv.config();
 

@@ -19,10 +19,8 @@ const authorise = (req, res, next) => {
         next();
     } catch (error) {
         console.error("Authorization Error:", error.message);
-        if (error.name === "TokenExpiredError") {
-            return res.status(401).json({ message: "Unauthorized: Token expired" });
-        }
-        return res.status(403).json({ message: "Forbidden: Invalid token" });
+        
+        return res.status(401).json({ message: "Unauthorized: Invalid token" });
     }
 };
 
