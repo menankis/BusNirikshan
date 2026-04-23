@@ -105,3 +105,46 @@ Passengers track buses on a live map. Drivers update location every 30 sec. via 
   - `400 Bad Request`: New password does not meet security requirements or is the same as the old password.
   - `403 Forbidden`: Invalid or expired reset token, or user not found.
   - `500 Internal Server Error`: Generic server error.
+
+### User (`/api/user`)
+
+#### 1. Get Public Profile
+- **Endpoint**: `GET /api/user/:userId`
+- **Description**: Fetches the public profile data of a specific user.
+- **Responses**:
+  - `200 OK`: Profile fetched successfully. Returns public-facing information including `name`, `role`, `rtc`, and `createdAt` (excludes sensitive fields like `passwordHash`).
+  - `404 Not Found`: User not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 2. Update Profile
+- **Endpoint**: `PATCH /api/user/:userId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Updates fields for a specific user. Replaces provided fields (`name`, `email`, `role`, `rtc`, `isActive`, `password`). Hashing is applied to any new password. Users can only update their own profile; admins can update any profile.
+- **Body**: (All fields are optional; include only what needs updating)
+  ```json
+  {
+    "name": "Jane Updated",
+    "email": "jane_new@example.com",
+    "role": "driver",
+    "rtc": "GSRTC",
+    "isActive": true,
+    "password": "NewPassword123!"
+  }
+  ```
+- **Responses**:
+  - `200 OK`: User updated successfully. Returns the updated user document (excluding passwordHash).
+  - `400 Bad Request`: No valid fields provided for update.
+  - `403 Forbidden`: Not allowed to update this profile (ownership or admin check failed) or invalid token.
+  - `404 Not Found`: User not found.
+  - `409 Conflict`: Email already in use by another user.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 3. Delete Profile
+- **Endpoint**: `DELETE /api/user/:userId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Deletes a user profile by ID. Additionally executes a cascading delete to scrub out any affiliated session refresh tokens and password reset tokens in order to prevent ghost sessions. Users can only delete their own profile; admins can delete any.
+- **Responses**:
+  - `200 OK`: User deleted successfully.
+  - `403 Forbidden`: Not allowed to delete this profile (ownership or admin check failed) or invalid token.
+  - `404 Not Found`: User not found.
+  - `500 Internal Server Error`: Generic server error.
