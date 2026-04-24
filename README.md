@@ -148,3 +148,85 @@ Passengers track buses on a live map. Drivers update location every 30 sec. via 
   - `403 Forbidden`: Not allowed to delete this profile (ownership or admin check failed) or invalid token.
   - `404 Not Found`: User not found.
   - `500 Internal Server Error`: Generic server error.
+
+### Stops (`/api/stops`)
+
+#### 1. Get Stops
+- **Endpoint**: `GET /api/stops/`
+- **Description**: Fetches all stops. Optionally filters by `city` and `rtc`.
+- **Query Parameters**:
+  - `city` (string): Exact match for city.
+  - `rtc` (string or array): Returns stops matching any of the provided RTCs.
+- **Responses**:
+  - `200 OK`: Stops fetched successfully. Returns an array of stops.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 2. Get Nearby Stops
+- **Endpoint**: `GET /api/stops/nearby`
+- **Description**: Fetches stops near a specific coordinate, sorted by distance.
+- **Query Parameters**:
+  - `latitude` (number, required)
+  - `longitude` (number, required)
+  - `radius` (number, optional): Maximum search radius in meters (defaults to 5000).
+- **Responses**:
+  - `200 OK`: Nearby stops fetched successfully. Returns an array of stops.
+  - `400 Bad Request`: Missing latitude or longitude.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 3. Get Stop by ID
+- **Endpoint**: `GET /api/stops/:stopId`
+- **Description**: Fetches a specific stop by its ID.
+- **Responses**:
+  - `200 OK`: Stop fetched successfully.
+  - `404 Not Found`: Stop not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 4. Create Stop
+- **Endpoint**: `POST /api/stops/`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Creates a new stop. Requires `admin` role.
+- **Body**: 
+  ```json
+  {
+    "name": "Dadar Station",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "rtc": ["MSRTC", "GSRTC"],
+    "latitude": 19.0193,
+    "longitude": 72.8439
+  }
+  ```
+  *(Note: You can also pass a full GeoJSON `location` object instead of `latitude` and `longitude`)*
+- **Responses**:
+  - `201 Created`: Stop created successfully.
+  - `400 Bad Request`: Missing required fields.
+  - `403 Forbidden`: Not allowed to create stops (not an admin).
+  - `500 Internal Server Error`: Generic server error.
+
+#### 5. Update Stop
+- **Endpoint**: `PATCH /api/stops/:stopId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Updates specific fields of an existing stop. Requires `admin` role.
+- **Body**: (All fields optional)
+  ```json
+  {
+    "isActive": false,
+    "rtc": ["MSRTC"]
+  }
+  ```
+- **Responses**:
+  - `200 OK`: Stop updated successfully.
+  - `400 Bad Request`: No fields provided for update.
+  - `403 Forbidden`: Not allowed to update stops (not an admin).
+  - `404 Not Found`: Stop not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 6. Delete Stop
+- **Endpoint**: `DELETE /api/stops/:stopId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Deletes a stop by ID. Requires `admin` role.
+- **Responses**:
+  - `200 OK`: Stop deleted successfully.
+  - `403 Forbidden`: Not allowed to delete stops (not an admin).
+  - `404 Not Found`: Stop not found.
+  - `500 Internal Server Error`: Generic server error.
