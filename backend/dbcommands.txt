@@ -142,3 +142,77 @@ db.passwordresettokens.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 // 3. Index on userId to quickly find all active sessions for a specific user
 db.passwordresettokens.createIndex({ userId: 1 })
+
+
+db.createCollection("stops", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["name", "city", "state", "rtc", "location", "createdAt", "updatedAt"],
+      properties: {
+        name: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        city: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        state: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        rtc: {
+          bsonType: "array",
+          minItems: 1, // Ensure the array isn't empty
+          description: "must be an array containing at least one valid RTC string",
+          items: {
+            bsonType: "string",
+            enum: ["GSRTC", "MSRTC", "RSRTC", "ALL", "NONE"]
+          }
+        },
+        location: {
+          bsonType: "object",
+          required: ["type", "coordinates"],
+          properties: {
+            type: {
+              enum: ["Point"],
+              description: "must be the string 'Point'"
+            },
+            coordinates: {
+              bsonType: "array",
+              minItems: 2,
+              maxItems: 2,
+              items: {
+                bsonType: ["double", "int", "long", "decimal"]
+              },
+              description: "must be an array of exactly two numbers: [longitude, latitude]"
+            }
+          }
+        },
+        isActive: {
+          bsonType: "bool",
+          description: "must be a boolean"
+        },
+        createdAt: {
+          bsonType: "date",
+          description: "must be a date and is required"
+        },
+        updatedAt: {
+          bsonType: "date",
+          description: "must be a date and is required"
+        }
+      }
+    }
+  }
+})
+
+
+// 1. Geospatial index to power $near and $geoWithin queries
+db.stops.createIndex({ location: "2dsphere" })
+
+// 2. Standard index for quick city lookups
+db.stops.createIndex({ city: 1 })
+
+// 3. Standard index for filtering by RTC
+db.stops.createIndex({ rtc: 1 })
