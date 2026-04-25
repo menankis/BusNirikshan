@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+:root {
+  --brand-orange: #FF6B2C;
+  --brand-orange-dark: #E85A1E;
+  --brand-orange-light: #FF8F5E;
+  --brand-yellow: #FFD166;
+  --brand-teal: #06D6A0;
+  --brand-navy: #0A1628;
+  --brand-navy-mid: #112240;
+  --brand-navy-light: #1E3A5F;
+  --brand-slate: #7B92B2;
+  --brand-slate-light: #A8BFDB;
+  --surface-card: rgba(255,255,255,0.04);
+  --surface-input: rgba(255,255,255,0.07);
+  --surface-input-focus: rgba(255,255,255,0.11);
+  --border-subtle: rgba(255,255,255,0.09);
+  --border-focus: rgba(255,107,44,0.6);
+  --text-primary: #F0F4FF;
+  --text-secondary: #A8BFDB;
+  --text-muted: #566F8F;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--brand-navy);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+input, textarea, select { font-family: inherit; }

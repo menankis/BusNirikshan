@@ -1,0 +1,12 @@
+.wrapper { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 13px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.02em; }
+.inputWrap { position: relative; display: flex; align-items: center; background: var(--surface-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); transition: border-color 0.2s, background 0.2s; }
+.inputWrap:focus-within { border-color: var(--border-focus); background: var(--surface-input-focus); }
+.inputWrap.hasError { border-color: rgba(239,68,68,0.5); }
+.icon { position: absolute; left: 14px; color: var(--text-muted); display: flex; align-items: center; pointer-events: none; }
+.input { width: 100%; padding: 14px 16px; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 15px; font-weight: 300; }
+.input.withIcon { padding-left: 44px; }
+.input::placeholder { color: var(--text-muted); }
+.togglePass { position: absolute; right: 14px; color: var(--text-muted); display: flex; align-items: center; padding: 4px; border-radius: 4px; transition: color 0.15s; }
+.togglePass:hover { color: var(--text-secondary); }
+.error { font-size: 12px; color: #EF4444; margin-top: 2px; }
