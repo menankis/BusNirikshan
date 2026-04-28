@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const driverSchema = new mongoose.Schema({
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'user', 
+    ref: 'User', 
     required: true,
     unique: true // Crucial: This enforces the 1-to-1 relationship
   },
@@ -18,7 +18,7 @@ const driverSchema = new mongoose.Schema({
     unique: true 
   },
   assignedBusId: { 
-    type: String, // Note: If Buses uses ObjectIds instead of strings (like number plates), change this to mongoose.Schema.Types.ObjectId
+    type: String, // String: Bus._id is a natural key (e.g. "GJ01-AB-1234"), not an ObjectId
     ref: 'Bus',
     default: null 
   },
@@ -42,5 +42,5 @@ const driverSchema = new mongoose.Schema({
 driverSchema.index({ assignedBusId: 1 });
 driverSchema.index({ rtc: 1, isOnShift: 1 });
 
-const Driver = mongoose.model('driver', driverSchema);
+const Driver = mongoose.model('Driver', driverSchema);
 module.exports = Driver;

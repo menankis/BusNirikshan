@@ -32,8 +32,10 @@ const routeSchema = new mongoose.Schema({
 });
 
 // Define your indexes
-routeSchema.index({ rtc: 1 });
-routeSchema.index({ stopIds: 1 }); // Creates the multikey index
+// Unique within an RTC: two different RTCs can share the same route name, but not within one
+routeSchema.index({ rtc: 1, name: 1 }, { unique: true });
+routeSchema.index({ stopIds: 1 }); // Multikey index: MongoDB indexes every ObjectId inside the array
+routeSchema.index({ rtc: 1, isActive: 1 }); // Filter active routes for a specific RTC
 
 const Route = mongoose.model('Route', routeSchema);
 module.exports = Route;

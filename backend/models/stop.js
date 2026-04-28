@@ -42,7 +42,9 @@ const stopSchema = new mongoose.Schema({
 
 // Define your indexes at the schema level
 stopSchema.index({ location: '2dsphere' });
-stopSchema.index({ city: 1 });
+// Compound index covers: stops by city only (prefix rule) AND stops by city+RTC (the common query)
+stopSchema.index({ city: 1, rtc: 1 });
+// Separate RTC index for when you query all stops for an RTC regardless of city
 stopSchema.index({ rtc: 1 });
 
 const Stop = mongoose.model('Stop', stopSchema);

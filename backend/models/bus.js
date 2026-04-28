@@ -1,10 +1,6 @@
 const mongoose = require('mongoose');
 
 const busSchema = new mongoose.Schema({
-  _id: { 
-    type: String, // Overrides the default ObjectId with your Natural Key
-    required: true 
-  },
   routeId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Route', 
@@ -21,7 +17,8 @@ const busSchema = new mongoose.Schema({
   },
   registrationNumber: { 
     type: String, 
-    required: true 
+    required: true,
+    unique: true  // A vehicle registration plate is globally unique
   },
   capacity: { 
     type: Number, 
@@ -29,16 +26,22 @@ const busSchema = new mongoose.Schema({
   },
   driverId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'driver', // Assuming this links to the DriverProfile collection made earlier
+    ref: 'Driver',
     default: null 
   },
   isActive: { 
     type: Boolean, 
     default: false // Defaults to false until they start their shift
   },
+  // GeoJSON Point — enables $near queries ("find buses within 5km of stop X")
   lastKnownLocation: {
-    lat: { type: Number },
-    lng: { type: Number },
+    type: {
+      type: String,
+      enum: ['Point']
+    },
+    coordinates: {
+      type: [Number] // [longitude, latitude] — GeoJSON order (lng first)
+    },
     speed_kmh: { type: Number },
     heading_deg: { type: Number },
     recordedAt: { type: Date }
@@ -51,6 +54,8 @@ const busSchema = new mongoose.Schema({
 busSchema.index({ rtc: 1, isActive: 1 });
 busSchema.index({ routeId: 1 });
 busSchema.index({ driverId: 1 });
+// sparse: true — skips buses with no location yet (off-shift) so they don't fail the 2dsphere constraint
+busSchema.index({ lastKnownLocation: '2dsphere' }, { sparse: true });
 busSchema.index({ 'lastKnownLocation.recordedAt': 1 });
 
 const Bus = mongoose.model('Bus', busSchema);
