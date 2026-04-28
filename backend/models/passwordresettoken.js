@@ -8,8 +8,8 @@ const PasswordResetTokenSchema = new mongoose.Schema({
   },
   email: { 
     type: String, 
-    required: true, 
-    unique: true
+    required: true
+    // NOTE: NOT unique — a user may request multiple resets; only the token itself is unique
   },    
   token: { 
     type: String, 
@@ -30,5 +30,11 @@ const PasswordResetTokenSchema = new mongoose.Schema({
   timestamps: { createdAt: true, updatedAt: false } 
 });
 
-const PasswordResetToken = mongoose.model('passwordresettoken', PasswordResetTokenSchema);
+// Find all tokens for a user (e.g. cleanup on reset request)
+PasswordResetTokenSchema.index({ userId: 1 });
+
+// Compound index: powers deleteMany({ userId, used: false }) in auth.js — avoids full collection scan
+PasswordResetTokenSchema.index({ userId: 1, used: 1 });
+
+const PasswordResetToken = mongoose.model('PasswordResetToken', PasswordResetTokenSchema);
 module.exports = PasswordResetToken;

@@ -7,6 +7,7 @@ const nodemailer = require("nodemailer");
 const User = require("../models/user");
 const RefreshToken = require("../models/refreshtoken");
 const PasswordResetToken = require("../models/passwordresettoken");
+const authorise = require("../middleware/authorise");
 
 dotenv.config();
 
@@ -95,15 +96,13 @@ router.post("/login", async (req, res) => {
 
         const refresh_token = jwt.sign({userId: user._id, email: user.email}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
         
-        await RefreshToken.updateOne(
-            { userId: user._id},
-            {
-              email: user.email,
-              token: refresh_token,
-              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-            },
-            { upsert: true, new: true }
-        );
+        // Create a new session document — one per device/browser (multi-session support)
+        await RefreshToken.create({
+            userId: user._id,
+            email: user.email,
+            token: refresh_token,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        });
 
         res.cookie("refresh_token", refresh_token, {
             httpOnly: true,
@@ -120,7 +119,7 @@ router.post("/login", async (req, res) => {
 });
 
 
-router.post("/logout", async (req, res) => {
+router.post("/logout", authorise, async (req, res) => {
     try {
         const refresh_token = req.cookies.refresh_token;
         if(!refresh_token){
@@ -129,6 +128,25 @@ router.post("/logout", async (req, res) => {
         await RefreshToken.deleteOne({token: refresh_token});
         res.clearCookie("refresh_token");
         res.status(200).json({message: "Logout successful"});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({message: "Internal server error"});
+    }
+});
+
+
+router.post("/logout-all", authorise, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const result = await RefreshToken.deleteMany({ userId });
+
+        res.clearCookie("refresh_token");
+
+        res.status(200).json({
+            message: "Logged out from all devices successfully",
+            sessionsRevoked: result.deletedCount
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({message: "Internal server error"});
@@ -165,15 +183,17 @@ router.post("/refresh", async (req, res) => {
         }, ACCESS_TOKEN_SECRET, {expiresIn: "15min"});
 
         const new_refresh_token = jwt.sign({userId: user._id, email: user.email}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
-        
-        await RefreshToken.updateOne(
-            { userId: user._id },
+
+        // Replace only this specific session's token (token rotation — old token is deleted, new one is inserted)
+        await RefreshToken.findOneAndReplace(
+            { token: refresh_token },
             {
-              email: user.email,
-              token: new_refresh_token,
-              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                userId: user._id,
+                email: user.email,
+                token: new_refresh_token,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
             },
-            { upsert: true, new: true }
+            { upsert: true }
         );
 
         res.cookie("refresh_token", new_refresh_token, {
@@ -211,17 +231,17 @@ router.post("/forgot-password", async (req, res) => {
 
         const resetToken = jwt.sign({userId: user._id, email: user.email}, RESET_TOKEN_SECRET, {expiresIn: "15min"});
         
-        await PasswordResetToken.updateOne(
-            { email: user.email },
-            {
-                userId: user._id,
-                email: user.email,
-                token: resetToken,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
-                used: false
-            },
-            { upsert: true }
-        );
+        // Invalidate any existing unused tokens for this user before issuing a new one
+        await PasswordResetToken.deleteMany({ userId: user._id, used: false });
+
+        // Create a fresh reset token document
+        await PasswordResetToken.create({
+            userId: user._id,
+            email: user.email,
+            token: resetToken,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+            used: false
+        });
 
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
         const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
@@ -263,26 +283,36 @@ router.post("/reset-password", async (req, res) => {
         }
 
         const decoded = jwt.verify(token, RESET_TOKEN_SECRET);
-        const tokenDoc = await PasswordResetToken.findOne({token});
-        if(!tokenDoc){
-            return res.status(403).json({message: "Invalid or expired reset token"});
+        const tokenDoc = await PasswordResetToken.findOne({ token });
+        if (!tokenDoc) {
+            return res.status(403).json({ message: "Invalid or expired reset token" });
         }
-        
+        // Guard against token replay attacks — once used, it can never be used again
+        if (tokenDoc.used) {
+            return res.status(403).json({ message: "Reset token has already been used" });
+        }
+
         const user = await User.findById(decoded.userId);
-        if(!user) {
-            return res.status(403).json({message: "User not found"});
+        if (!user) {
+            return res.status(403).json({ message: "User not found" });
         }
 
         const isPasswordValid = await bcrypt.compare(newPassword, user.passwordHash);
-        if(isPasswordValid){
-            return res.status(400).json({message: "New password cannot be same as old password"});
+        if (isPasswordValid) {
+            return res.status(400).json({ message: "New password cannot be same as old password" });
         }
 
         const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-        await User.updateOne({_id: user._id}, {passwordHash});
-        await PasswordResetToken.deleteOne({token});
+        await User.updateOne({ _id: user._id }, { passwordHash });
 
-        res.status(200).json({message: "Password reset successful"});
+        // Mark as used first (atomic guard), then clean up all reset tokens for this user
+        await PasswordResetToken.updateOne({ token }, { used: true });
+        await PasswordResetToken.deleteMany({ userId: user._id });
+
+        // Security: revoke ALL active sessions — a password change must invalidate every device
+        await RefreshToken.deleteMany({ userId: user._id });
+
+        res.status(200).json({ message: "Password reset successful. Please log in again on all your devices." });
     } catch (error) {
         if (error.name === 'TokenExpiredError' || error.name === 'JsonWebTokenError') {
             return res.status(403).json({message: "Invalid or expired reset token"});

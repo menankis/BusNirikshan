@@ -8,8 +8,8 @@ const refreshTokenSchema = new mongoose.Schema({
   },
   email: { 
     type: String, 
-    required: true, 
-    unique: true
+    required: true 
+    // NOTE: NOT unique — one user can have multiple active sessions (mobile + desktop)
   },
   token: { 
     type: String, 
@@ -28,5 +28,8 @@ const refreshTokenSchema = new mongoose.Schema({
   collection: 'refreshtokens'
 });
 
-const RefreshToken = mongoose.model('refreshtoken', refreshTokenSchema);
+// Find all active sessions for a given user (e.g. "log out all devices")
+refreshTokenSchema.index({ userId: 1 });
+
+const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);
 module.exports = RefreshToken;

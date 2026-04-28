@@ -3,12 +3,15 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema({
   name: { 
     type: String, 
-    required: true 
+    required: true,
+    trim: true  // Strip leading/trailing whitespace from display names
   },
   email: { 
     type: String, 
     required: true, 
-    unique: true
+    unique: true,
+    lowercase: true,  // Normalise to lowercase so "User@Gmail.com" === "user@gmail.com"
+    trim: true
   },
   passwordHash: { 
     type: String, 
@@ -33,5 +36,5 @@ const userSchema = new mongoose.Schema({
   collection: 'users'
 });
 
-const User = mongoose.model('user', userSchema);
+const User = mongoose.model('User', userSchema);
 module.exports = User;
