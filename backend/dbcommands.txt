@@ -216,3 +216,236 @@ db.stops.createIndex({ city: 1 })
 
 // 3. Standard index for filtering by RTC
 db.stops.createIndex({ rtc: 1 })
+
+
+db.createCollection("drivers", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["userId", "rtc", "licenseNumber", "isOnShift", "totalShifts", "createdAt", "updatedAt"],
+      properties: {
+        userId: {
+          bsonType: "objectId",
+          description: "must be an ObjectId and is required"
+        },
+        rtc: {
+          enum: ["GSRTC", "MSRTC", "RSRTC"],
+          description: "must be one of the specified RTCs and is required"
+        },
+        licenseNumber: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        assignedBusId: {
+          bsonType: ["string", "null"],
+          description: "must be a string referencing the Bus or null"
+        },
+        isOnShift: {
+          bsonType: "bool",
+          description: "must be a boolean and is required"
+        },
+        shiftStartedAt: {
+          bsonType: ["date", "null"],
+          description: "must be a date or null"
+        },
+        totalShifts: {
+          bsonType: ["int", "long", "double"],
+          description: "must be a number representing the running count"
+        },
+        createdAt: {
+          bsonType: "date"
+        },
+        updatedAt: {
+          bsonType: "date"
+        }
+      }
+    }
+  }
+})
+
+
+// 1. Unique index on userId enforces the 1-to-1 relationship with the Users collection
+db.drivers.createIndex({ userId: 1 }, { unique: true })
+
+// 2. Unique index to ensure no two drivers have the same license
+db.drivers.createIndex({ licenseNumber: 1 }, { unique: true })
+
+// 3. Standard index to quickly find who is driving a specific bus
+db.drivers.createIndex({ assignedBusId: 1 })
+
+// 4. Compound index to quickly filter drivers by RTC and their shift status
+db.drivers.createIndex({ rtc: 1, isOnShift: 1 })
+
+
+db.createCollection("buses", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["_id", "routeId", "rtc", "routeName", "registrationNumber", "capacity", "isActive", "createdAt", "updatedAt"],
+      properties: {
+        _id: {
+          bsonType: "string",
+          description: "must be a string (natural key) and is required"
+        },
+        routeId: {
+          bsonType: "objectId",
+          description: "must be an ObjectId referencing Routes and is required"
+        },
+        rtc: {
+          enum: ["GSRTC", "MSRTC", "RSRTC"],
+          description: "must be one of the specified RTCs and is required"
+        },
+        routeName: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        registrationNumber: {
+          bsonType: "string",
+          description: "must be a string (official reg) and is required"
+        },
+        capacity: {
+          bsonType: ["int", "double", "long"],
+          description: "must be a number representing seating capacity"
+        },
+        driverId: {
+          bsonType: ["objectId", "null"],
+          description: "must be an ObjectId referencing Drivers or null"
+        },
+        isActive: {
+          bsonType: "bool",
+          description: "must be a boolean"
+        },
+        lastKnownLocation: {
+          bsonType: ["object", "null"],
+          properties: {
+            lat: { bsonType: ["double", "int", "decimal"] },
+            lng: { bsonType: ["double", "int", "decimal"] },
+            speed_kmh: { bsonType: ["double", "int", "decimal"] },
+            heading_deg: { bsonType: ["double", "int", "decimal"] },
+            recordedAt: { bsonType: "date" }
+          }
+        },
+        createdAt: { bsonType: "date" },
+        updatedAt: { bsonType: "date" }
+      }
+    }
+  }
+})
+
+db.createCollection("buses", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["_id", "routeId", "rtc", "routeName", "registrationNumber", "capacity", "isActive", "createdAt", "updatedAt"],
+      properties: {
+        _id: {
+          bsonType: "string",
+          description: "must be a string (natural key) and is required"
+        },
+        routeId: {
+          bsonType: "objectId",
+          description: "must be an ObjectId referencing Routes and is required"
+        },
+        rtc: {
+          enum: ["GSRTC", "MSRTC", "RSRTC"],
+          description: "must be one of the specified RTCs and is required"
+        },
+        routeName: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        registrationNumber: {
+          bsonType: "string",
+          description: "must be a string (official reg) and is required"
+        },
+        capacity: {
+          bsonType: ["int", "double", "long"],
+          description: "must be a number representing seating capacity"
+        },
+        driverId: {
+          bsonType: ["objectId", "null"],
+          description: "must be an ObjectId referencing Drivers or null"
+        },
+        isActive: {
+          bsonType: "bool",
+          description: "must be a boolean"
+        },
+        lastKnownLocation: {
+          bsonType: ["object", "null"],
+          properties: {
+            lat: { bsonType: ["double", "int", "decimal"] },
+            lng: { bsonType: ["double", "int", "decimal"] },
+            speed_kmh: { bsonType: ["double", "int", "decimal"] },
+            heading_deg: { bsonType: ["double", "int", "decimal"] },
+            recordedAt: { bsonType: "date" }
+          }
+        },
+        createdAt: { bsonType: "date" },
+        updatedAt: { bsonType: "date" }
+      }
+    }
+  }
+})
+
+// 1. Compound index to quickly filter active buses for a specific RTC
+db.buses.createIndex({ rtc: 1, isActive: 1 })
+
+// 2. Standard index to find all buses assigned to a specific route
+db.buses.createIndex({ routeId: 1 })
+
+// 3. Standard index to see which bus a driver is assigned to
+db.buses.createIndex({ driverId: 1 })
+
+// 4. Index on the nested recordedAt timestamp for telemetry sorting/cleanup
+db.buses.createIndex({ "lastKnownLocation.recordedAt": 1 })
+
+
+db.createCollection("routes", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["name", "rtc", "stopIds", "totalDistanceKm", "estimatedDurationMin", "isActive", "createdAt", "updatedAt"],
+      properties: {
+        name: {
+          bsonType: "string",
+          description: "must be a string and is required"
+        },
+        rtc: {
+          enum: ["GSRTC", "MSRTC", "RSRTC"],
+          description: "must be one of the specified RTCs and is required"
+        },
+        stopIds: {
+          bsonType: "array",
+          description: "must be an array of ObjectIds representing the ordered stops",
+          items: {
+            bsonType: "objectId"
+          }
+        },
+        totalDistanceKm: {
+          bsonType: ["double", "int", "decimal"],
+          description: "must be a number representing the total distance"
+        },
+        estimatedDurationMin: {
+          bsonType: ["double", "int", "decimal"],
+          description: "must be a number representing estimated duration"
+        },
+        isActive: {
+          bsonType: "bool",
+          description: "must be a boolean"
+        },
+        createdAt: {
+          bsonType: "date"
+        },
+        updatedAt: {
+          bsonType: "date"
+        }
+      }
+    }
+  }
+})
+
+// 1. Standard index for filtering routes by their transport corporation
+db.routes.createIndex({ rtc: 1 })
+
+// 2. Multikey index: MongoDB indexes every individual ObjectId inside the array
+db.routes.createIndex({ stopIds: 1 })
