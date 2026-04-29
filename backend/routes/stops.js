@@ -1,5 +1,7 @@
 const express = require("express");
 const Stop = require("../models/stop");
+const Route = require("../models/route");
+const Bus = require("../models/bus");
 const authMiddleware = require("../middleware/authorise");
 
 const router = express.Router();
@@ -181,15 +183,134 @@ router.delete("/:stopId", authMiddleware, async (req, res) =>{
 })
 
 
-// Get all buses currently approaching this stop with ETAs
-// router.get("/:stopId/buses", async (req, res) => {
-//     try {
-//         const {stopId} = req.params;
-        
-//     } catch (error) {
-        
-//     }
-// })
+// ─────────────────────────────────────────────────────────────────────────────
+// Haversine formula — straight-line distance between two lat/lng points in km.
+// Shared by /:stopId/buses below (mirrors the helper in routes/buses.js).
+// ─────────────────────────────────────────────────────────────────────────────
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/stops/:stopId/buses
+// Returns all active buses currently approaching this stop, with ETAs.
+//
+// Auth:    None required (public endpoint)
+// Params:  stopId — the Stop _id
+//
+// Algorithm:
+//   1. Fetch the stop (need its GeoJSON location for ETA calculation)
+//   2. Find active Routes whose stopIds array contains this stop
+//   3. Find active Buses assigned to those routes that have a known location
+//   4. Compute straight-line distance + ETA for each bus
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/:stopId/buses", async (req, res) => {
+    try {
+        const { stopId } = req.params;
+
+        // ── 1. Verify stop exists and get its coordinates ────────────────────
+        const stop = await Stop.findById(stopId, {
+            _id: 1,
+            name: 1,
+            location: 1
+        }).lean();
+
+        if (!stop) {
+            return res.status(404).json({ message: "Stop not found" });
+        }
+
+        if (!stop.location?.coordinates?.length) {
+            return res.status(409).json({
+                message: "Stop has no location data — cannot calculate ETAs"
+            });
+        }
+
+        const [stopLng, stopLat] = stop.location.coordinates; // GeoJSON: [lng, lat]
+
+        // ── 2. Find all active routes that serve this stop ───────────────────
+        const routes = await Route.find(
+            { stopIds: stopId, isActive: true },
+            { _id: 1 }
+        ).lean();
+
+        if (routes.length === 0) {
+            return res.status(200).json({
+                message: "No active routes serve this stop",
+                stop: { _id: stop._id, name: stop.name },
+                count: 0,
+                buses: []
+            });
+        }
+
+        const routeIds = routes.map(r => r._id);
+
+        // ── 3. Find active buses on those routes that have a known location ──
+        const buses = await Bus.find(
+            {
+                routeId: { $in: routeIds },
+                isActive: true,
+                "lastKnownLocation.coordinates": { $exists: true, $ne: [] }
+            },
+            {
+                _id: 1,
+                routeName: 1,
+                rtc: 1,
+                routeId: 1,
+                lastKnownLocation: 1
+            }
+        ).lean();
+
+        // ── 4. Calculate distance and ETA for each bus ───────────────────────
+        const FALLBACK_SPEED_KMH = 40; // used when bus is stopped or speed is unknown
+
+        const busesWithEta = buses.map(bus => {
+            const loc = bus.lastKnownLocation;
+            const [busLng, busLat] = loc.coordinates; // GeoJSON: [lng, lat]
+
+            const distanceKm = getDistanceKm(busLat, busLng, stopLat, stopLng);
+
+            const speedKmh = (loc.speed_kmh && loc.speed_kmh > 0)
+                ? loc.speed_kmh
+                : FALLBACK_SPEED_KMH;
+
+            const etaMinutes = Math.round((distanceKm / speedKmh) * 60);
+
+            return {
+                _id:              bus._id,
+                routeName:        bus.routeName,
+                rtc:              bus.rtc,
+                routeId:          bus.routeId,
+                lastKnownLocation: loc,         // raw GeoJSON — consistent with rest of API
+                distance_km:      parseFloat(distanceKm.toFixed(2)),
+                speed_kmh:        speedKmh,
+                eta_minutes:      etaMinutes
+            };
+        });
+
+
+        return res.status(200).json({
+            message: "Buses fetched successfully",
+            stop: { _id: stop._id, name: stop.name },
+            count: busesWithEta.length,
+            buses: busesWithEta
+        });
+
+    } catch (error) {
+        console.error("Error fetching buses for stop:", error);
+        res.status(500).json({
+            message: "Server error while fetching buses for stop",
+            error: error.message
+        });
+    }
+})
 
 
 
