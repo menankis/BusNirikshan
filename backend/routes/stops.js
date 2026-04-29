@@ -6,9 +6,19 @@ const authMiddleware = require("../middleware/authorise");
 
 const router = express.Router();
 
+// Shared pagination helper
+function parsePagination(query, defaultLimit = 20, maxLimit = 100) {
+    const page  = Math.max(1, parseInt(query.page,  10) || 1);
+    const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
+    const skip  = (page - 1) * limit;
+    return { page, limit, skip };
+}
+
+// Query:   city?, rtc?, page?, limit?
 router.get("/", async (req, res) => {
     try {
         const { city, rtc } = req.query;
+        const { page, limit, skip } = parsePagination(req.query);
         
         const filter = {};
         if (city) {
@@ -20,8 +30,23 @@ router.get("/", async (req, res) => {
             filter.rtc = { $in: rtcArray };
         }
 
-        const stops = await Stop.find(filter).lean();
-        res.status(200).json({message: "Stops fetched successfully", count: stops.length, stops});
+        const [total, stops] = await Promise.all([
+            Stop.countDocuments(filter),
+            Stop.find(filter).skip(skip).limit(limit).lean()
+        ]);
+
+        res.status(200).json({
+            message: "Stops fetched successfully",
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages:  Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            },
+            stops
+        });
     } catch (error) {
         console.error("Error fetching stops:", error);
         res.status(500).json({ message: "Server error while fetching stops." });

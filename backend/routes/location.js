@@ -291,16 +291,22 @@ router.get("/live", async (req, res) => {
         // Lean projection — only fields the client needs for a live map
         // lastKnownLocation is returned as raw GeoJSON, matching the format
         // used by all other bus endpoints (e.g. GET /api/buses/:id)
+        // Note: $nearSphere is incompatible with countDocuments, so full pagination
+        // is not supported here. Use ?limit (default 50, max 200) to cap results.
+        // Use ?radius to narrow the geographic scope instead.
+        const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+
         const buses = await Bus.find(filter, {
             _id: 1,
             routeName: 1,
             rtc: 1,
             routeId: 1,
             lastKnownLocation: 1
-        }).lean();
+        }).limit(limit).lean();
 
         return res.status(200).json({
             message: "Live bus locations fetched successfully",
+            limit,
             count: buses.length,
             buses
         });
