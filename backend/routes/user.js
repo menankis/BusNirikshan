@@ -16,9 +16,15 @@ const validatePassword = (password) => {
     return null;
 };
 
-router.get("/:userId", async (req, res) => {
+router.get("/:userId", authMiddleware, async (req, res) => {
     try {
         const { userId } = req.params;
+
+        // Non-admins can only view their own profile
+        if (req.user.userId !== userId && req.user.role !== "admin") {
+            return res.status(403).json({ message: "Forbidden: Not allowed to view this profile" });
+        }
+
         const user = await User.findById(userId).select("name email role rtc createdAt");
         
         if (!user) {
@@ -41,10 +47,17 @@ router.patch("/:userId", authMiddleware, async (req, res) => {
         }
 
         const updates = {};
+        // Privileged fields that only admins may change
+        const adminOnlyFields = ["role"];
         const allowedFields = ["name", "email", "role", "rtc", "isActive"];
         
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) {
+                if (adminOnlyFields.includes(field) && req.user.role !== "admin") {
+                    return res.status(403).json({
+                        message: `Forbidden: Only admins can change '${field}'`
+                    });
+                }
                 updates[field] = req.body[field];
             }
         }

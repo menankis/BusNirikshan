@@ -21,8 +21,8 @@ router.get("/",async (req,res)=>{
             filter.isActive = isActive === 'true';
         }
 
-        const buses = await Bus.find(filter);
-        res.status(200).json({message: "Buses fetched successfully", buses});
+        const buses = await Bus.find(filter).lean();
+        res.status(200).json({message: "Buses fetched successfully", count: buses.length, buses});
     } catch (error) {
         console.error("Error fetching buses:", error);
         res.status(500).json({ message: "Server error while fetching buses." });
@@ -32,7 +32,7 @@ router.get("/",async (req,res)=>{
 router.get("/:busId", async (req, res) => {
     try {
         const {busId} = req.params;
-        const bus = await Bus.findById(busId);
+        const bus = await Bus.findById(busId).lean();
         if(!bus){
             return res.status(404).json({message: "Bus not found"});
         }
@@ -102,19 +102,27 @@ router.patch("/:busId", authorise, async (req, res) => {
 
         // Handle location updates
         if (location && location.coordinates) {
+            if (!Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
+                return res.status(400).json({ message: "Validation Error: 'location.coordinates' must be a [lng, lat] array" });
+            }
             updateData.lastKnownLocation = { 
                 type: 'Point', 
                 coordinates: location.coordinates,
-                speed_kmh,
-                heading_deg,
+                ...(speed_kmh !== undefined && { speed_kmh }),
+                ...(heading_deg !== undefined && { heading_deg }),
                 recordedAt: new Date()
             };
         } else if (longitude !== undefined && latitude !== undefined) {
+            const parsedLng = parseFloat(longitude);
+            const parsedLat = parseFloat(latitude);
+            if (isNaN(parsedLng) || isNaN(parsedLat)) {
+                return res.status(400).json({ message: "Validation Error: 'latitude' and 'longitude' must be valid numbers" });
+            }
             updateData.lastKnownLocation = { 
                 type: 'Point', 
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
-                speed_kmh,
-                heading_deg,
+                coordinates: [parsedLng, parsedLat],
+                ...(speed_kmh !== undefined && { speed_kmh }),
+                ...(heading_deg !== undefined && { heading_deg }),
                 recordedAt: new Date()
             };
         }
@@ -200,6 +208,10 @@ router.get("/:busId/history", async (req, res) => {
 
         if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
             return res.status(400).json({ message: "Invalid 'from' or 'to' timestamps provided." });
+        }
+
+        if (fromDate >= toDate) {
+            return res.status(400).json({ message: "'from' must be earlier than 'to'." });
         }
 
         const history = await BusLocation.find({

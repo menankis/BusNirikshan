@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const authorise = require("../middleware/authorise");
 const Driver = require("../models/driver");
 const Bus = require("../models/bus");
@@ -273,21 +274,17 @@ router.get("/live", async (req, res) => {
 
         // ── RTC filter ───────────────────────────────────────────────────────
         if (rtc) {
-            const allowed = ["GSRTC", "MSRTC", "RSRTC"];
-            const rtcArray = (Array.isArray(rtc) ? rtc : [rtc])
-                .filter(r => allowed.includes(r));
-
-            if (rtcArray.length === 0) {
-                return res.status(400).json({
-                    message: "Validation Error: 'rtc' must be one of GSRTC, MSRTC, RSRTC"
-                });
-            }
-
+            const rtcArray = Array.isArray(rtc) ? rtc : [rtc];
             filter.rtc = { $in: rtcArray };
         }
 
         // ── Route filter ─────────────────────────────────────────────────────
         if (routeId) {
+            if (!mongoose.isValidObjectId(routeId)) {
+                return res.status(400).json({
+                    message: "Validation Error: 'routeId' is not a valid ObjectId"
+                });
+            }
             filter.routeId = routeId;
         }
 

@@ -20,8 +20,8 @@ router.get("/", async (req, res) => {
             filter.rtc = { $in: rtcArray };
         }
 
-        const stops = await Stop.find(filter);
-        res.status(200).json({message: "Stops fetched successfully", stops});
+        const stops = await Stop.find(filter).lean();
+        res.status(200).json({message: "Stops fetched successfully", count: stops.length, stops});
     } catch (error) {
         console.error("Error fetching stops:", error);
         res.status(500).json({ message: "Server error while fetching stops." });
@@ -37,21 +37,37 @@ router.get("/nearby", async (req, res) => {
             return res.status(400).json({ message: "Please provide both longitude and latitude query parameters." });
         }
 
-        const maxDistanceInMeters = radius ? parseInt(radius) : 5000; // Default 5km
+        const parsedLng = parseFloat(longitude);
+        const parsedLat = parseFloat(latitude);
+
+        if (isNaN(parsedLng) || isNaN(parsedLat)) {
+            return res.status(400).json({ message: "'longitude' and 'latitude' must be valid numbers." });
+        }
+        if (parsedLat < -90 || parsedLat > 90) {
+            return res.status(400).json({ message: "'latitude' must be between -90 and 90." });
+        }
+        if (parsedLng < -180 || parsedLng > 180) {
+            return res.status(400).json({ message: "'longitude' must be between -180 and 180." });
+        }
+
+        const parsedRadius = radius ? parseInt(radius, 10) : 5000;
+        if (isNaN(parsedRadius) || parsedRadius <= 0) {
+            return res.status(400).json({ message: "'radius' must be a positive integer (metres)." });
+        }
 
         const stops = await Stop.find({
             location: {
                 $near: {
                     $geometry: {
                         type: "Point",
-                        coordinates: [parseFloat(longitude), parseFloat(latitude)]
+                        coordinates: [parsedLng, parsedLat]
                     },
-                    $maxDistance: maxDistanceInMeters
+                    $maxDistance: parsedRadius
                 }
             }
-        });
+        }).lean();
 
-        res.status(200).json({ message: "Nearby stops fetched successfully", stops });
+        res.status(200).json({ message: "Nearby stops fetched successfully", count: stops.length, stops });
     } catch (error) {
         console.error("Error fetching nearby stops:", error);
         res.status(500).json({ message: "Server error while fetching nearby stops.", error: error.message });
@@ -84,6 +100,11 @@ router.post("/", authMiddleware, async (req, res) => {
 
         if (!name || !city || !state || !rtc) {
             return res.status(400).json({ message: "Missing required fields: name, city, state, rtc" });
+        }
+
+        // rtc is stored as an array in the Stop schema
+        if (!Array.isArray(rtc) || rtc.length === 0) {
+            return res.status(400).json({ message: "Validation Error: 'rtc' must be a non-empty array (e.g. ['GSRTC'])" });
         }
 
         let stopLocation;
@@ -128,7 +149,12 @@ router.patch("/:stopId", authMiddleware, async (req, res) =>{
         if (name !== undefined) updateData.name = name;
         if (city !== undefined) updateData.city = city;
         if (state !== undefined) updateData.state = state;
-        if (rtc !== undefined) updateData.rtc = rtc;
+        if (rtc !== undefined) {
+            if (!Array.isArray(rtc) || rtc.length === 0) {
+                return res.status(400).json({ message: "Validation Error: 'rtc' must be a non-empty array" });
+            }
+            updateData.rtc = rtc;
+        }
         if (isActive !== undefined) updateData.isActive = isActive;
 
         // Handle location updates via either 'location' object or lat/long pair

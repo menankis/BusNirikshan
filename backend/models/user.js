@@ -24,7 +24,6 @@ const userSchema = new mongoose.Schema({
   },
   rtc: { 
     type: String, 
-    enum: ['GSRTC', 'MSRTC', 'RSRTC', null], 
     default: null 
   },
   isActive: { 
