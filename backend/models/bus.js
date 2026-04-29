@@ -8,7 +8,6 @@ const busSchema = new mongoose.Schema({
   },
   rtc: { 
     type: String, 
-    enum: ['GSRTC', 'MSRTC', 'RSRTC'], 
     required: true 
   },
   routeName: { 

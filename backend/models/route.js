@@ -7,7 +7,6 @@ const routeSchema = new mongoose.Schema({
   },
   rtc: { 
     type: String, 
-    enum: ['GSRTC', 'MSRTC', 'RSRTC'], 
     required: true 
   },
   stopIds: [{ 

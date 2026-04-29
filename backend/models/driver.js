@@ -9,7 +9,6 @@ const driverSchema = new mongoose.Schema({
   },
   rtc: { 
     type: String, 
-    enum: ['GSRTC', 'MSRTC', 'RSRTC'], 
     required: true 
   },
   licenseNumber: { 

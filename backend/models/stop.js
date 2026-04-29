@@ -14,10 +14,7 @@ const stopSchema = new mongoose.Schema({
     required: true 
   },
   rtc: {
-    type: [{ 
-      type: String, 
-      enum: ['GSRTC', 'MSRTC', 'RSRTC', 'ALL', 'NONE'] 
-    }],
+    type: [String],
     required: true,
     validate: [v => v.length > 0, 'A stop must belong to at least one RTC']
   },
