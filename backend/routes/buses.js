@@ -6,9 +6,19 @@ const express = require("express");
 
 const router = express.Router();
 
+// Shared pagination helper — parse page/limit from query, clamp to sane bounds
+function parsePagination(query, defaultLimit = 20, maxLimit = 100) {
+    const page  = Math.max(1, parseInt(query.page,  10) || 1);
+    const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
+    const skip  = (page - 1) * limit;
+    return { page, limit, skip };
+}
+
+// Query:   page?, limit?                   — pagination (default: page=1, limit=20, max=100)
 router.get("/",async (req,res)=>{
     try {
-        const { rtc, isActive} = req.query;
+        const { rtc, isActive } = req.query;
+        const { page, limit, skip } = parsePagination(req.query);
         
         const filter = {};
         
@@ -18,11 +28,31 @@ router.get("/",async (req,res)=>{
         }
         
         if (isActive !== undefined) {
+            if (isActive !== 'true' && isActive !== 'false') {
+                return res.status(400).json({
+                    message: "Validation Error: 'isActive' must be 'true' or 'false'"
+                });
+            }
             filter.isActive = isActive === 'true';
         }
 
-        const buses = await Bus.find(filter).lean();
-        res.status(200).json({message: "Buses fetched successfully", count: buses.length, buses});
+        const [total, buses] = await Promise.all([
+            Bus.countDocuments(filter),
+            Bus.find(filter).skip(skip).limit(limit).lean()
+        ]);
+
+        res.status(200).json({
+            message: "Buses fetched successfully",
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages:  Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            },
+            buses
+        });
     } catch (error) {
         console.error("Error fetching buses:", error);
         res.status(500).json({ message: "Server error while fetching buses." });
@@ -198,6 +228,7 @@ router.get("/:busId/history", async (req, res) => {
     try {
         const { busId } = req.params;
         const { from, to } = req.query;
+        const { page, limit, skip } = parsePagination(req.query, 100, 500);
 
         if (!from || !to) {
             return res.status(400).json({ message: "Both 'from' and 'to' epoch timestamps are required." });
@@ -214,21 +245,34 @@ router.get("/:busId/history", async (req, res) => {
             return res.status(400).json({ message: "'from' must be earlier than 'to'." });
         }
 
-        const history = await BusLocation.find({
-            busId: busId,
-            timestamp: {
-                $gte: fromDate,
-                $lte: toDate
-            }
-        }).sort({ timestamp: 1 }); 
+        const timeFilter = {
+            busId,
+            timestamp: { $gte: fromDate, $lte: toDate }
+        };
+
+        const [total, history] = await Promise.all([
+            BusLocation.countDocuments(timeFilter),
+            BusLocation.find(timeFilter)
+                .sort({ timestamp: 1 })
+                .skip(skip)
+                .limit(limit)
+                .lean()
+        ]);
         
-        if(!history || history.length === 0) {
-            return res.status(404).json({ message: "Bus history not found" });
+        if (total === 0) {
+            return res.status(404).json({ message: "No history found for this bus in the given time range." });
         }
 
         res.status(200).json({ 
-            message: "Bus history fetched successfully", 
-            count: history.length,
+            message: "Bus history fetched successfully",
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages:  Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            },
             history 
         });
 

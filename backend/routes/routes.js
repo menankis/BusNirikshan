@@ -5,6 +5,14 @@ const Route = require("../models/route");
 const Bus = require("../models/bus");
 const router = express.Router();
 
+// Shared pagination helper
+function parsePagination(query, defaultLimit = 20, maxLimit = 100) {
+    const page  = Math.max(1, parseInt(query.page,  10) || 1);
+    const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
+    const skip  = (page - 1) * limit;
+    return { page, limit, skip };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/routes
 // List routes with optional filters.
@@ -13,10 +21,13 @@ const router = express.Router();
 // Query:   rtc?      — filter by operator (GSRTC | MSRTC | RSRTC), repeatable
 //          isActive? — "true" | "false"
 //          stopId?   — only routes that include this stop
+//          page?     — pagination page number
+//          limit?    — items per page
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
     try {
         const { rtc, isActive, stopId } = req.query;
+        const { page, limit, skip } = parsePagination(req.query);
 
         const filter = {};
 
@@ -28,6 +39,11 @@ router.get("/", async (req, res) => {
 
         // ── isActive filter ──────────────────────────────────────────────────
         if (isActive !== undefined) {
+            if (isActive !== "true" && isActive !== "false") {
+                return res.status(400).json({
+                    message: "Validation Error: 'isActive' must be 'true' or 'false'"
+                });
+            }
             filter.isActive = isActive === "true";
         }
 
@@ -43,13 +59,21 @@ router.get("/", async (req, res) => {
         }
 
         // ── Query ────────────────────────────────────────────────────────────
-        let query = Route.find(filter);
-
-        const routes = await query.lean();
+        const [total, routes] = await Promise.all([
+            Route.countDocuments(filter),
+            Route.find(filter).skip(skip).limit(limit).lean()
+        ]);
 
         return res.status(200).json({
             message: "Routes fetched successfully",
-            count: routes.length,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages:  Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            },
             routes
         });
 
@@ -245,31 +269,42 @@ router.delete("/:routeId", authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/routes/:routeId/buses
 // Get all active buses currently running on a route.
-//
+// Query:   page?, limit?
 // Auth:    None required (public)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/:routeId/buses", async (req, res) => {
     try {
         const { routeId } = req.params;
 
+        if (!mongoose.isValidObjectId(routeId)) {
+            return res.status(400).json({
+                message: "Validation Error: 'routeId' is not a valid ObjectId"
+            });
+        }
 
-        const buses = await Bus.find(
-            {
-                routeId,
-                isActive: true
-            },
-            {
-                _id: 1,
-                routeName: 1,
-                rtc: 1,
-                registrationNumber: 1,
-                lastKnownLocation: 1
-            }
-        ).lean();
+        const { page, limit, skip } = parsePagination(req.query);
+
+
+        const busFilter = { routeId, isActive: true };
+
+        const [total, buses] = await Promise.all([
+            Bus.countDocuments(busFilter),
+            Bus.find(
+                busFilter,
+                { _id: 1, routeName: 1, rtc: 1, registrationNumber: 1, lastKnownLocation: 1 }
+            ).skip(skip).limit(limit).lean()
+        ]);
 
         return res.status(200).json({
             message: "Buses fetched successfully",
-            count: buses.length,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages:  Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            },
             buses
         });
 
