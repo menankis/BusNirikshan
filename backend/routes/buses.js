@@ -4,16 +4,10 @@ const BusLocation = require("../models/buslocation");
 const Stop = require("../models/stop");
 const express = require("express");
 const { getOrSet, invalidate, stableQueryString } = require("../utils/cache");
+const { parsePagination } = require("../utils/pagination");
+const { getDistanceKm } = require("../utils/geo");
 
 const router = express.Router();
-
-// Shared pagination helper
-function parsePagination(query, defaultLimit = 20, maxLimit = 100) {
-    const page  = Math.max(1, parseInt(query.page,  10) || 1);
-    const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
-    const skip  = (page - 1) * limit;
-    return { page, limit, skip };
-}
 
 // Cache TTLs (seconds)
 const TTL = {
@@ -297,17 +291,6 @@ router.get("/:busId/history", async (req, res) => {
     }
 });
 
-// Helper — Haversine formula
-function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 // GET /api/buses/:busId/eta  — TTL 10 s
 // Key: busId + stopId (no pagination — single calculation)
@@ -339,7 +322,7 @@ router.get("/:busId/eta", async (req, res) => {
 
             const [busLon, busLat]   = bus.lastKnownLocation.coordinates;
             const [stopLon, stopLat] = stop.location.coordinates;
-            const distanceKm = getDistanceFromLatLonInKm(busLat, busLon, stopLat, stopLon);
+            const distanceKm = getDistanceKm(busLat, busLon, stopLat, stopLon);
             let speedKmh = bus.lastKnownLocation.speed_kmh;
             if (!speedKmh || speedKmh <= 0) speedKmh = 40;
             const etaMinutes = Math.round((distanceKm / speedKmh) * 60);

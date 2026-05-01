@@ -4,16 +4,11 @@ const authMiddleware = require("../middleware/authorise");
 const Route = require("../models/route");
 const Bus = require("../models/bus");
 const { getOrSet, invalidate, stableQueryString } = require("../utils/cache");
+const { parsePagination } = require("../utils/pagination");
 
 const router = express.Router();
 
-// Shared pagination helper
-function parsePagination(query, defaultLimit = 20, maxLimit = 100) {
-    const page  = Math.max(1, parseInt(query.page,  10) || 1);
-    const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
-    const skip  = (page - 1) * limit;
-    return { page, limit, skip };
-}
+
 
 // Cache TTLs (seconds)
 const TTL = {

@@ -4,16 +4,10 @@ const Route = require("../models/route");
 const Bus = require("../models/bus");
 const authMiddleware = require("../middleware/authorise");
 const { getOrSet, invalidate, stableQueryString } = require("../utils/cache");
+const { parsePagination } = require("../utils/pagination");
+const { getDistanceKm } = require("../utils/geo");
 
 const router = express.Router();
-
-// Shared pagination helper
-function parsePagination(query, defaultLimit = 20, maxLimit = 100) {
-    const page  = Math.max(1, parseInt(query.page,  10) || 1);
-    const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
-    const skip  = (page - 1) * limit;
-    return { page, limit, skip };
-}
 
 // Cache TTLs (seconds)
 const TTL = {
@@ -263,21 +257,7 @@ router.delete("/:stopId", authMiddleware, async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Haversine formula helper
-// ─────────────────────────────────────────────────────────────────────────────
-function getDistanceKm(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/stops/:stopId/buses  — TTL 10 s (approaching buses + ETAs)
 // No pagination — all approaching buses are returned (typically a small set).
 // Cache is keyed only on stopId; invalidated by any POST /api/locations.
