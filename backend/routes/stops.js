@@ -3,57 +3,65 @@ const Stop = require("../models/stop");
 const Route = require("../models/route");
 const Bus = require("../models/bus");
 const authMiddleware = require("../middleware/authorise");
+const { getOrSet, invalidate, stableQueryString } = require("../utils/cache");
+const { parsePagination } = require("../utils/pagination");
+const { getDistanceKm } = require("../utils/geo");
 
 const router = express.Router();
 
-// Shared pagination helper
-function parsePagination(query, defaultLimit = 20, maxLimit = 100) {
-    const page  = Math.max(1, parseInt(query.page,  10) || 1);
-    const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
-    const skip  = (page - 1) * limit;
-    return { page, limit, skip };
-}
+// Cache TTLs (seconds)
+const TTL = {
+    STOP_LIST:   120,
+    STOP_NEARBY:  30,
+    STOP_DETAIL: 300,
+    STOP_BUSES:   10,  // approaching buses + ETAs — near real-time
+};
 
-// Query:   city?, rtc?, page?, limit?
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/stops
+// Cache key encodes all query params (city, rtc, page, limit) so every
+// unique page/filter combination is stored independently.
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
     try {
         const { city, rtc } = req.query;
         const { page, limit, skip } = parsePagination(req.query);
-        
-        const filter = {};
-        if (city) {
-            filter.city = city;
-        }
-        if (rtc) {
-            // Handle both single string (?rtc=MSRTC) and array (?rtc=MSRTC&rtc=GSRTC)
-            const rtcArray = Array.isArray(rtc) ? rtc : [rtc];
-            filter.rtc = { $in: rtcArray };
-        }
 
-        const [total, stops] = await Promise.all([
-            Stop.countDocuments(filter),
-            Stop.find(filter).skip(skip).limit(limit).lean()
-        ]);
+        const cacheKey = `stops:list:${stableQueryString(req.query)}`;
 
-        res.status(200).json({
-            message: "Stops fetched successfully",
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages:  Math.ceil(total / limit),
-                hasNextPage: page < Math.ceil(total / limit),
-                hasPrevPage: page > 1
-            },
-            stops
+        const result = await getOrSet(cacheKey, TTL.STOP_LIST, async () => {
+            const filter = {};
+            if (city) filter.city = city;
+            if (rtc)  filter.rtc = { $in: Array.isArray(rtc) ? rtc : [rtc] };
+
+            const [total, stops] = await Promise.all([
+                Stop.countDocuments(filter),
+                Stop.find(filter).skip(skip).limit(limit).lean()
+            ]);
+
+            return {
+                pagination: {
+                    total, page, limit,
+                    totalPages:  Math.ceil(total / limit),
+                    hasNextPage: page < Math.ceil(total / limit),
+                    hasPrevPage: page > 1
+                },
+                stops
+            };
         });
+
+        res.status(200).json({ message: "Stops fetched successfully", ...result });
     } catch (error) {
         console.error("Error fetching stops:", error);
         res.status(500).json({ message: "Server error while fetching stops." });
     }
 });
 
-
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/stops/nearby
+// No DB-level pagination ($near is already proximity-limited).
+// Cache key: lng + lat + radius.
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/nearby", async (req, res) => {
     try {
         const { longitude, latitude, radius } = req.query;
@@ -80,17 +88,18 @@ router.get("/nearby", async (req, res) => {
             return res.status(400).json({ message: "'radius' must be a positive integer (metres)." });
         }
 
-        const stops = await Stop.find({
-            location: {
-                $near: {
-                    $geometry: {
-                        type: "Point",
-                        coordinates: [parsedLng, parsedLat]
-                    },
-                    $maxDistance: parsedRadius
+        const cacheKey = `stops:nearby:${parsedLng}:${parsedLat}:${parsedRadius}`;
+
+        const stops = await getOrSet(cacheKey, TTL.STOP_NEARBY, () =>
+            Stop.find({
+                location: {
+                    $near: {
+                        $geometry: { type: "Point", coordinates: [parsedLng, parsedLat] },
+                        $maxDistance: parsedRadius
+                    }
                 }
-            }
-        }).lean();
+            }).lean()
+        );
 
         res.status(200).json({ message: "Nearby stops fetched successfully", count: stops.length, stops });
     } catch (error) {
@@ -99,26 +108,33 @@ router.get("/nearby", async (req, res) => {
     }
 });
 
-
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/stops/:stopId  — TTL 300 s (stop details rarely change)
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/:stopId", async (req, res) => {
     try {
-        const {stopId} = req.params;
-        const stop = await Stop.findById(stopId);
-        if(!stop){
-            return res.status(404).json({message: "Stop not found"});
-        }
-        res.status(200).json({message: "Stop fetched successfully", stop: stop});
+        const { stopId } = req.params;
+
+        const stop = await getOrSet(`stops:detail:${stopId}`, TTL.STOP_DETAIL, () =>
+            Stop.findById(stopId)
+        );
+
+        if (!stop) return res.status(404).json({ message: "Stop not found" });
+        res.status(200).json({ message: "Stop fetched successfully", stop });
     } catch (error) {
         console.error("Error fetching stop:", error);
         res.status(500).json({ message: "Server error while fetching stop." });
     }
-})
+});
 
-
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/stops — admin only
+// Invalidates all list pages + nearby (new stop changes proximity results)
+// ─────────────────────────────────────────────────────────────────────────────
 router.post("/", authMiddleware, async (req, res) => {
     try {
-        if(req.user.role !== "admin"){
-            return res.status(403).json({message: "Forbidden: Not allowed to create stops"});
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Forbidden: Not allowed to create stops" });
         }
 
         const { name, city, state, rtc, location, latitude, longitude, isActive } = req.body;
@@ -126,8 +142,6 @@ router.post("/", authMiddleware, async (req, res) => {
         if (!name || !city || !state || !rtc) {
             return res.status(400).json({ message: "Missing required fields: name, city, state, rtc" });
         }
-
-        // rtc is stored as an array in the Stop schema
         if (!Array.isArray(rtc) || rtc.length === 0) {
             return res.status(400).json({ message: "Validation Error: 'rtc' must be a non-empty array (e.g. ['GSRTC'])" });
         }
@@ -142,47 +156,47 @@ router.post("/", authMiddleware, async (req, res) => {
         }
 
         const newStop = new Stop({
-            name,
-            city,
-            state,
-            rtc,
+            name, city, state, rtc,
             location: stopLocation,
             isActive: isActive !== undefined ? isActive : true
         });
 
         await newStop.save();
-        res.status(201).json({ message: "Stop created successfully", stop: newStop });
+        await invalidate("stops:list:*", "stops:nearby:*");
 
+        res.status(201).json({ message: "Stop created successfully", stop: newStop });
     } catch (error) {
         console.error("Error creating stop:", error);
         res.status(500).json({ message: "Server error while creating stop.", error: error.message });
     }
-})
+});
 
-router.patch("/:stopId", authMiddleware, async (req, res) =>{
-
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/stops/:stopId — admin only
+// Invalidates detail + all list pages + nearby + buses-at-stop
+// ─────────────────────────────────────────────────────────────────────────────
+router.patch("/:stopId", authMiddleware, async (req, res) => {
     try {
-        if(req.user.role !== "admin"){
-            return res.status(403).json({message: "Forbidden: Not allowed to update stops"});
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Forbidden: Not allowed to update stops" });
         }
 
         const { stopId } = req.params;
         const { name, city, state, rtc, location, latitude, longitude, isActive } = req.body;
 
         const updateData = {};
+        if (name     !== undefined) updateData.name     = name;
+        if (city     !== undefined) updateData.city     = city;
+        if (state    !== undefined) updateData.state    = state;
+        if (isActive !== undefined) updateData.isActive = isActive;
 
-        if (name !== undefined) updateData.name = name;
-        if (city !== undefined) updateData.city = city;
-        if (state !== undefined) updateData.state = state;
         if (rtc !== undefined) {
             if (!Array.isArray(rtc) || rtc.length === 0) {
                 return res.status(400).json({ message: "Validation Error: 'rtc' must be a non-empty array" });
             }
             updateData.rtc = rtc;
         }
-        if (isActive !== undefined) updateData.isActive = isActive;
 
-        // Handle location updates via either 'location' object or lat/long pair
         if (location && location.coordinates) {
             updateData.location = { type: 'Point', coordinates: location.coordinates };
         } else if (longitude !== undefined && latitude !== undefined) {
@@ -199,171 +213,131 @@ router.patch("/:stopId", authMiddleware, async (req, res) =>{
             { returnDocument: "after", runValidators: true }
         );
 
-        if (!updatedStop) {
-            return res.status(404).json({ message: "Stop not found" });
-        }
+        if (!updatedStop) return res.status(404).json({ message: "Stop not found" });
+
+        await invalidate(
+            `stops:detail:${stopId}`,
+            `stops:buses:${stopId}`,
+            "stops:list:*",
+            "stops:nearby:*"
+        );
 
         res.status(200).json({ message: "Stop updated successfully", stop: updatedStop });
-
     } catch (error) {
         console.error("Error updating stop:", error);
         res.status(500).json({ message: "Server error while updating stop.", error: error.message });
     }
+});
 
-})
-
-router.delete("/:stopId", authMiddleware, async (req, res) =>{
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /api/stops/:stopId — admin only
+// ─────────────────────────────────────────────────────────────────────────────
+router.delete("/:stopId", authMiddleware, async (req, res) => {
     try {
-        if(req.user.role !== "admin"){
-            return res.status(403).json({message: "Forbidden: Not allowed to delete stops"});
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Forbidden: Not allowed to delete stops" });
         }
 
         const { stopId } = req.params;
         const deletedStop = await Stop.findByIdAndDelete(stopId);
 
-        if (!deletedStop) {
-            return res.status(404).json({ message: "Stop not found" });
-        }
+        if (!deletedStop) return res.status(404).json({ message: "Stop not found" });
+
+        await invalidate(
+            `stops:detail:${stopId}`,
+            `stops:buses:${stopId}`,
+            "stops:list:*",
+            "stops:nearby:*"
+        );
 
         res.status(200).json({ message: "Stop deleted successfully", stop: deletedStop });
-
     } catch (error) {
         console.error("Error deleting stop:", error);
         res.status(500).json({ message: "Server error while deleting stop.", error: error.message });
     }
-})
+});
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Haversine formula — straight-line distance between two lat/lng points in km.
-// Shared by /:stopId/buses below (mirrors the helper in routes/buses.js).
-// ─────────────────────────────────────────────────────────────────────────────
-function getDistanceKm(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/stops/:stopId/buses
-// Returns all active buses currently approaching this stop, with ETAs.
-//
-// Auth:    None required (public endpoint)
-// Params:  stopId — the Stop _id
-//
-// Algorithm:
-//   1. Fetch the stop (need its GeoJSON location for ETA calculation)
-//   2. Find active Routes whose stopIds array contains this stop
-//   3. Find active Buses assigned to those routes that have a known location
-//   4. Compute straight-line distance + ETA for each bus
+// GET /api/stops/:stopId/buses  — TTL 10 s (approaching buses + ETAs)
+// No pagination — all approaching buses are returned (typically a small set).
+// Cache is keyed only on stopId; invalidated by any POST /api/locations.
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/:stopId/buses", async (req, res) => {
     try {
         const { stopId } = req.params;
 
-        // ── 1. Verify stop exists and get its coordinates ────────────────────
-        const stop = await Stop.findById(stopId, {
-            _id: 1,
-            name: 1,
-            location: 1
-        }).lean();
+        const result = await getOrSet(`stops:buses:${stopId}`, TTL.STOP_BUSES, async () => {
+            const stop = await Stop.findById(stopId, { _id: 1, name: 1, location: 1 }).lean();
+            if (!stop) return null;
 
-        if (!stop) {
-            return res.status(404).json({ message: "Stop not found" });
-        }
+            if (!stop.location?.coordinates?.length) {
+                return { noLocation: true, stop };
+            }
 
-        if (!stop.location?.coordinates?.length) {
+            const [stopLng, stopLat] = stop.location.coordinates;
+
+            const routes = await Route.find(
+                { stopIds: stopId, isActive: true },
+                { _id: 1 }
+            ).lean();
+
+            if (routes.length === 0) {
+                return {
+                    stop: { _id: stop._id, name: stop.name },
+                    count: 0,
+                    buses: []
+                };
+            }
+
+            const routeIds = routes.map(r => r._id);
+            const buses = await Bus.find(
+                {
+                    routeId: { $in: routeIds },
+                    isActive: true,
+                    "lastKnownLocation.coordinates": { $exists: true, $ne: [] }
+                },
+                { _id: 1, routeName: 1, rtc: 1, routeId: 1, lastKnownLocation: 1 }
+            ).lean();
+
+            const FALLBACK_SPEED_KMH = 40;
+            const busesWithEta = buses.map(bus => {
+                const loc = bus.lastKnownLocation;
+                const [busLng, busLat] = loc.coordinates;
+                const distanceKm = getDistanceKm(busLat, busLng, stopLat, stopLng);
+                const speedKmh = (loc.speed_kmh && loc.speed_kmh > 0) ? loc.speed_kmh : FALLBACK_SPEED_KMH;
+                const etaMinutes = Math.round((distanceKm / speedKmh) * 60);
+                return {
+                    _id: bus._id,
+                    routeName: bus.routeName,
+                    rtc: bus.rtc,
+                    routeId: bus.routeId,
+                    lastKnownLocation: loc,
+                    distance_km: parseFloat(distanceKm.toFixed(2)),
+                    speed_kmh: speedKmh,
+                    eta_minutes: etaMinutes
+                };
+            });
+
+            return {
+                stop: { _id: stop._id, name: stop.name },
+                count: busesWithEta.length,
+                buses: busesWithEta
+            };
+        });
+
+        if (!result) return res.status(404).json({ message: "Stop not found" });
+
+        if (result.noLocation) {
             return res.status(409).json({
                 message: "Stop has no location data — cannot calculate ETAs"
             });
         }
 
-        const [stopLng, stopLat] = stop.location.coordinates; // GeoJSON: [lng, lat]
-
-        // ── 2. Find all active routes that serve this stop ───────────────────
-        const routes = await Route.find(
-            { stopIds: stopId, isActive: true },
-            { _id: 1 }
-        ).lean();
-
-        if (routes.length === 0) {
-            return res.status(200).json({
-                message: "No active routes serve this stop",
-                stop: { _id: stop._id, name: stop.name },
-                count: 0,
-                buses: []
-            });
-        }
-
-        const routeIds = routes.map(r => r._id);
-
-        // ── 3. Find active buses on those routes that have a known location ──
-        const buses = await Bus.find(
-            {
-                routeId: { $in: routeIds },
-                isActive: true,
-                "lastKnownLocation.coordinates": { $exists: true, $ne: [] }
-            },
-            {
-                _id: 1,
-                routeName: 1,
-                rtc: 1,
-                routeId: 1,
-                lastKnownLocation: 1
-            }
-        ).lean();
-
-        // ── 4. Calculate distance and ETA for each bus ───────────────────────
-        const FALLBACK_SPEED_KMH = 40; // used when bus is stopped or speed is unknown
-
-        const busesWithEta = buses.map(bus => {
-            const loc = bus.lastKnownLocation;
-            const [busLng, busLat] = loc.coordinates; // GeoJSON: [lng, lat]
-
-            const distanceKm = getDistanceKm(busLat, busLng, stopLat, stopLng);
-
-            const speedKmh = (loc.speed_kmh && loc.speed_kmh > 0)
-                ? loc.speed_kmh
-                : FALLBACK_SPEED_KMH;
-
-            const etaMinutes = Math.round((distanceKm / speedKmh) * 60);
-
-            return {
-                _id:              bus._id,
-                routeName:        bus.routeName,
-                rtc:              bus.rtc,
-                routeId:          bus.routeId,
-                lastKnownLocation: loc,         // raw GeoJSON — consistent with rest of API
-                distance_km:      parseFloat(distanceKm.toFixed(2)),
-                speed_kmh:        speedKmh,
-                eta_minutes:      etaMinutes
-            };
-        });
-
-
-        return res.status(200).json({
-            message: "Buses fetched successfully",
-            stop: { _id: stop._id, name: stop.name },
-            count: busesWithEta.length,
-            buses: busesWithEta
-        });
-
+        return res.status(200).json({ message: "Buses fetched successfully", ...result });
     } catch (error) {
         console.error("Error fetching buses for stop:", error);
-        res.status(500).json({
-            message: "Server error while fetching buses for stop",
-            error: error.message
-        });
+        res.status(500).json({ message: "Server error while fetching buses for stop", error: error.message });
     }
-})
+});
 
-
-
-
-module.exports = router
+module.exports = router;
