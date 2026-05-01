@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const busLocationSchema = new mongoose.Schema({
   busId: { 
-    type: String, 
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bus', 
     required: true 
   },
   timestamp: { 

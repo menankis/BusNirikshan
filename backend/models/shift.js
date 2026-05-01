@@ -7,7 +7,7 @@ const shiftSchema = new mongoose.Schema({
     required: true 
   },
   busId: { 
-    type: String, // String because Bus uses natural keys (e.g., "GJ01-1234")
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Bus', 
     required: true 
   },

@@ -230,3 +230,241 @@ Passengers track buses on a live map. Drivers update location every 30 sec. via 
   - `403 Forbidden`: Not allowed to delete stops (not an admin).
   - `404 Not Found`: Stop not found.
   - `500 Internal Server Error`: Generic server error.
+
+#### 7. Get Buses for a Stop
+- **Endpoint**: `GET /api/stops/:stopId/buses`
+- **Description**: Fetches all active buses running on routes serving the specified stop, along with ETA and distance.
+- **Responses**:
+  - `200 OK`: Buses fetched successfully.
+  - `404 Not Found`: Stop not found.
+  - `409 Conflict`: Stop has no location data.
+  - `500 Internal Server Error`: Generic server error.
+
+### Buses (`/api/buses`)
+
+#### 1. Get Buses
+- **Endpoint**: `GET /api/buses/`
+- **Description**: Fetches a paginated list of buses. Can filter by `rtc` and `isActive`.
+- **Query Parameters**:
+  - `rtc` (string/array): Filter by one or more RTCs.
+  - `isActive` (boolean): Filter active or inactive buses.
+  - `page` (number): Page number (default: 1).
+  - `limit` (number): Results per page (default: 20).
+- **Responses**:
+  - `200 OK`: Buses fetched successfully with pagination info.
+  - `400 Bad Request`: Invalid filter parameters.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 2. Get Bus by ID
+- **Endpoint**: `GET /api/buses/:busId`
+- **Description**: Fetches a specific bus by ID.
+- **Responses**:
+  - `200 OK`: Bus fetched successfully.
+  - `404 Not Found`: Bus not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 3. Create Bus
+- **Endpoint**: `POST /api/buses/`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Creates a new bus. Requires `admin` role.
+- **Body**:
+  ```json
+  {
+    "registrationNumber": "GJ01-AB-1234",
+    "rtc": "GSRTC",
+    "routeName": "Ahmedabad-Surat",
+    "routeId": "route_object_id",
+    "isActive": true
+  }
+  ```
+- **Responses**:
+  - `201 Created`: Bus created successfully.
+  - `400 Bad Request`: Missing required fields.
+  - `403 Forbidden`: Not allowed to create buses (not an admin).
+  - `409 Conflict`: Bus registration number already exists.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 4. Update Bus
+- **Endpoint**: `PATCH /api/buses/:busId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Updates fields of a specific bus. Requires `admin` role.
+- **Body**: (All fields optional)
+  ```json
+  {
+    "isActive": false,
+    "routeName": "Ahmedabad-Rajkot"
+  }
+  ```
+- **Responses**:
+  - `200 OK`: Bus updated successfully.
+  - `400 Bad Request`: Invalid update payload.
+  - `403 Forbidden`: Not allowed to update buses (not an admin).
+  - `404 Not Found`: Bus not found.
+  - `409 Conflict`: Registration number already in use.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 5. Delete Bus
+- **Endpoint**: `DELETE /api/buses/:busId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Deletes a specific bus. Requires `admin` role.
+- **Responses**:
+  - `200 OK`: Bus deleted successfully.
+  - `403 Forbidden`: Not allowed to delete buses (not an admin).
+  - `404 Not Found`: Bus not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 6. Get Bus Status
+- **Endpoint**: `GET /api/buses/:busId/status`
+- **Description**: Real-time status (active state and last known location) of a single bus.
+- **Responses**:
+  - `200 OK`: Bus status fetched successfully.
+  - `404 Not Found`: Bus not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 7. Get Bus History
+- **Endpoint**: `GET /api/buses/:busId/history`
+- **Description**: Fetches location history of a specific bus within a time range.
+- **Query Parameters**:
+  - `from` (number): Epoch timestamp (required).
+  - `to` (number): Epoch timestamp (required).
+  - `page` (number): Page number (default: 1).
+  - `limit` (number): Results per page (default: 100, max: 500).
+- **Responses**:
+  - `200 OK`: Bus history fetched successfully.
+  - `400 Bad Request`: Missing or invalid `from`/`to` parameters.
+  - `404 Not Found`: Bus history not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 8. Get Bus ETA
+- **Endpoint**: `GET /api/buses/:busId/eta`
+- **Description**: Estimates time of arrival for a bus to a given stop ID or coordinate.
+- **Query Parameters**:
+  - `stopId` (string, optional): Target stop ID.
+  - `latitude` (number, optional): Target latitude.
+  - `longitude` (number, optional): Target longitude.
+- **Responses**:
+  - `200 OK`: ETA fetched successfully.
+  - `400 Bad Request`: Missing target coordinates/stopId or invalid values.
+  - `404 Not Found`: Bus or stop not found.
+  - `409 Conflict`: Bus lacks location data to calculate ETA.
+  - `500 Internal Server Error`: Generic server error.
+
+### Routes (`/api/routes`)
+
+#### 1. Get Routes
+- **Endpoint**: `GET /api/routes/`
+- **Description**: Fetches paginated routes. Supports filtering.
+- **Query Parameters**:
+  - `rtc` (string/array): Filter by one or more RTCs.
+  - `isActive` (boolean): Filter active or inactive routes.
+  - `stopId` (string): Filter routes passing through this stop.
+  - `page` (number): Page number.
+  - `limit` (number): Results per page.
+- **Responses**:
+  - `200 OK`: Routes fetched successfully.
+  - `400 Bad Request`: Invalid filter format.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 2. Get Route by ID
+- **Endpoint**: `GET /api/routes/:routeId`
+- **Description**: Fetches a single route by ID.
+- **Responses**:
+  - `200 OK`: Route fetched successfully.
+  - `404 Not Found`: Route not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 3. Create Route
+- **Endpoint**: `POST /api/routes/`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Creates a new route. Requires `admin` role.
+- **Body**:
+  ```json
+  {
+    "name": "Mumbai-Pune Express",
+    "rtc": "MSRTC",
+    "stopIds": ["stop_object_id1", "stop_object_id2"],
+    "totalDistanceKm": 150.5,
+    "estimatedDurationMin": 180,
+    "isActive": true
+  }
+  ```
+- **Responses**:
+  - `201 Created`: Route created successfully.
+  - `400 Bad Request`: Missing fields or invalid format.
+  - `403 Forbidden`: Not allowed to create routes (not an admin).
+  - `500 Internal Server Error`: Generic server error.
+
+#### 4. Update Route
+- **Endpoint**: `PATCH /api/routes/:routeId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Updates fields of a specific route. Requires `admin` role.
+- **Responses**:
+  - `200 OK`: Route updated successfully.
+  - `400 Bad Request`: Invalid update payload.
+  - `403 Forbidden`: Not allowed to update routes.
+  - `404 Not Found`: Route not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 5. Delete Route
+- **Endpoint**: `DELETE /api/routes/:routeId`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Deletes a specific route. Requires `admin` role.
+- **Responses**:
+  - `200 OK`: Route deleted successfully.
+  - `403 Forbidden`: Not allowed to delete routes.
+  - `404 Not Found`: Route not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 6. Get Buses on Route
+- **Endpoint**: `GET /api/routes/:routeId/buses`
+- **Description**: Gets all active buses currently running on a route.
+- **Query Parameters**:
+  - `page` (number): Page number.
+  - `limit` (number): Results per page.
+- **Responses**:
+  - `200 OK`: Buses fetched successfully.
+  - `404 Not Found`: Route not found.
+  - `500 Internal Server Error`: Generic server error.
+
+### Locations (`/api/locations`)
+
+#### 1. Submit Location Update
+- **Endpoint**: `POST /api/locations/`
+- **Headers Required**: `Authorization: Bearer <access_token>`
+- **Description**: Driver submits real-time GPS update. Requires `driver` role with active shift.
+- **Body**:
+  ```json
+  {
+    "latitude": 19.0193,
+    "longitude": 72.8439,
+    "speed_kmh": 45,
+    "heading_deg": 180
+  }
+  ```
+- **Responses**:
+  - `201 Created`: GPS location updated successfully.
+  - `400 Bad Request`: Missing lat/lng or invalid data.
+  - `403 Forbidden`: User is not a driver.
+  - `404 Not Found`: Driver record or active bus not found.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 2. Get Live Locations (All Buses)
+- **Endpoint**: `GET /api/locations/live`
+- **Description**: Returns latest positions of all active buses. Supports bounding queries.
+- **Query Parameters**:
+  - `rtc` (string/array): Filter by RTC.
+  - `routeId` (string): Filter by Route ID.
+  - `latitude`, `longitude`, `radius` (numbers): Geographic bounding.
+  - `limit` (number): Max results to return.
+- **Responses**:
+  - `200 OK`: Live bus locations fetched successfully.
+  - `400 Bad Request`: Invalid geospatial parameters.
+  - `500 Internal Server Error`: Generic server error.
+
+#### 3. Get Live Location (Single Bus)
+- **Endpoint**: `GET /api/locations/live/:busId`
+- **Description**: Returns the latest known position of a single bus.
+- **Responses**:
+  - `200 OK`: Live bus location fetched successfully.
+  - `404 Not Found`: Bus location not found or bus inactive.
+  - `500 Internal Server Error`: Generic server error.

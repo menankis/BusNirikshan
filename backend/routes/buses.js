@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const authorise = require("../middleware/authorise");
 const Bus = require("../models/bus");
 const BusLocation = require("../models/buslocation");
@@ -66,6 +67,10 @@ router.get("/", async (req, res) => {
 router.get("/:busId", async (req, res) => {
     try {
         const { busId } = req.params;
+        if (!mongoose.isValidObjectId(busId)) {
+            return res.status(400).json({ message: "Validation Error: 'busId' is not a valid ObjectId" });
+        }
+        
         const bus = await getOrSet(`buses:detail:${busId}`, TTL.BUS_DETAIL, () =>
             Bus.findById(busId).lean()
         );
@@ -122,6 +127,10 @@ router.patch("/:busId", authorise, async (req, res) => {
         }
 
         const { busId } = req.params;
+        if (!mongoose.isValidObjectId(busId)) {
+            return res.status(400).json({ message: "Validation Error: 'busId' is not a valid ObjectId" });
+        }
+
         const {
             routeId, rtc, routeName, registrationNumber, capacity,
             driverId, isActive, location, latitude, longitude,
@@ -199,6 +208,10 @@ router.delete("/:busId", authorise, async (req, res) => {
         }
 
         const { busId } = req.params;
+        if (!mongoose.isValidObjectId(busId)) {
+            return res.status(400).json({ message: "Validation Error: 'busId' is not a valid ObjectId" });
+        }
+
         const deletedBus = await Bus.findByIdAndDelete(busId);
 
         if (!deletedBus) return res.status(404).json({ message: "Bus not found" });
@@ -222,6 +235,9 @@ router.delete("/:busId", authorise, async (req, res) => {
 router.get("/:busId/status", async (req, res) => {
     try {
         const { busId } = req.params;
+        if (!mongoose.isValidObjectId(busId)) {
+            return res.status(400).json({ message: "Validation Error: 'busId' is not a valid ObjectId" });
+        }
 
         const status = await getOrSet(`buses:status:${busId}`, TTL.BUS_STATUS, async () => {
             const bus = await Bus.findById(busId, 'isActive lastKnownLocation');
@@ -243,6 +259,10 @@ router.get("/:busId/status", async (req, res) => {
 router.get("/:busId/history", async (req, res) => {
     try {
         const { busId } = req.params;
+        if (!mongoose.isValidObjectId(busId)) {
+            return res.status(400).json({ message: "Validation Error: 'busId' is not a valid ObjectId" });
+        }
+
         const { from, to } = req.query;
         const { page, limit, skip } = parsePagination(req.query, 100, 500);
 
@@ -297,7 +317,14 @@ router.get("/:busId/history", async (req, res) => {
 router.get("/:busId/eta", async (req, res) => {
     try {
         const { busId } = req.params;
+        if (!mongoose.isValidObjectId(busId)) {
+            return res.status(400).json({ message: "Validation Error: 'busId' is not a valid ObjectId" });
+        }
+
         const { stopId } = req.query;
+        if (!mongoose.isValidObjectId(stopId)) {
+            return res.status(400).json({ message: "Validation Error: 'stopId' is not a valid ObjectId" });
+        }
 
         if (!stopId) {
             return res.status(400).json({ message: "stopId query parameter is required." });

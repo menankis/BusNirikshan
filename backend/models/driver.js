@@ -17,7 +17,7 @@ const driverSchema = new mongoose.Schema({
     unique: true 
   },
   assignedBusId: { 
-    type: String, // String: Bus._id is a natural key (e.g. "GJ01-AB-1234"), not an ObjectId
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Bus',
     default: null 
   },

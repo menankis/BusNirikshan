@@ -284,6 +284,9 @@ router.get("/live", async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get("/live/:busId", async (req, res) => {
     const { busId } = req.params;
+    if (!mongoose.isValidObjectId(busId)) {
+        return res.status(400).json({ message: "Validation Error: 'busId' is not a valid ObjectId" });
+    }
     try {
         const bus = await getOrSet(`locations:live:${busId}`, TTL.LIVE_ONE, () =>
             Bus.findById(busId, {
