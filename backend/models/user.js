@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
   },
   role: { 
     type: String, 
-    enum: ['passenger', 'driver', 'admin'], 
+    enum: ['user', 'driver', 'admin'], 
     required: true 
   },
   rtc: { 

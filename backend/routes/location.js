@@ -1,6 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const authorise = require("../middleware/authorise");
+const requireRole = require("../middleware/requireRole");
 const Driver = require("../models/driver");
 const Bus = require("../models/bus");
 const BusLocation = require("../models/buslocation");
@@ -32,16 +32,9 @@ const TTL = {
 //   Wipes live-location entries for this bus and all-bus live list, plus
 //   stop-level bus-ETA caches and the per-bus status/eta entries.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post("/", authorise, async (req, res) => {
+router.post("/", requireRole("driver"), async (req, res) => {
     try {
-        // ── 1. Role guard ────────────────────────────────────────────────────
-        if (req.user.role !== "driver") {
-            return res.status(403).json({
-                message: "Forbidden: Only drivers can submit GPS updates"
-            });
-        }
-
-        // ── 2. Payload validation ────────────────────────────────────────────
+        // ── 1. Payload validation ────────────────────────────────────────────
         const { lat, lng, speed_kmh, heading_deg, timestamp } = req.body;
 
         if (lat === undefined || lat === null || lng === undefined || lng === null) {
@@ -93,7 +86,7 @@ router.post("/", authorise, async (req, res) => {
             }
         }
 
-        // ── 3. Driver record lookup & shift guard ────────────────────────────
+        // ── 2. Driver record lookup ──────────────────────────────────────────
         const driver = await Driver.findOne({ userId: req.user.userId });
 
         if (!driver) {
@@ -254,18 +247,20 @@ router.get("/live", async (req, res) => {
         const cacheKey = `locations:live:${stableQueryString(req.query)}`;
 
         const buses = await getOrSet(cacheKey, TTL.LIVE_ALL, async () => {
-            const filter = {
-                isActive: true,
-                "lastKnownLocation.coordinates": { $exists: true, $ne: [] }
-            };
+            const filter = { isActive: true };
 
             if (hasLat && hasLng) {
+                // $nearSphere implicitly requires a valid 2dsphere location, so
+                // the existence check is unnecessary in this branch.
                 filter.lastKnownLocation = {
                     $nearSphere: {
                         $geometry: { type: "Point", coordinates: [parsedLng, parsedLat] },
                         $maxDistance: radiusKm * 1000
                     }
                 };
+            } else {
+                // No geo filter — explicitly exclude buses with no recorded location
+                filter["lastKnownLocation.coordinates"] = { $exists: true, $ne: [] };
             }
             if (rtc) filter.rtc = { $in: Array.isArray(rtc) ? rtc : [rtc] };
             if (routeId) filter.routeId = routeId;
