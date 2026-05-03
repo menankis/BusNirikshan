@@ -1,0 +1,53 @@
+services:
+  backend:
+    image: mamba1234/busnirikshan:backend
+    container_name: busnirikshan-backend
+    hostname: backend
+    restart: unless-stopped
+    networks:
+      - app
+    env_file:
+      - stack.env
+    ports:
+      - "5000:5000"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # frontend:
+  #   image: mamba1234/busnirikshan:frontend
+  #   container_name: busnirikshan-frontend
+  #   hostname: frontend
+  #   networks:
+  #     - app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - API_URL=value
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    hostname: redis
+    networks:
+      - app
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    environment:
+      - REDIS_ARGS=--requirepass maulik.jaipur --appendonly yes
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+    driver: local
+    
+networks:
+  app:
+    driver: bridge
