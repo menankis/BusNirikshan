@@ -1,4 +1,3 @@
-const authMiddleware = require("../middleware/authorise");
 const express = require("express");
 const User = require("../models/user");
 const RefreshToken = require("../models/refreshtoken");
@@ -22,7 +21,7 @@ const userCacheKey = (userId) => `user:profile:${userId}`;
 // Cached for TTL.USER_PROFILE seconds per userId.
 // Cache is invalidated immediately on PATCH and DELETE.
 // ─────────────────────────────────────────────────────────────────────────────
-router.get("/:userId", authMiddleware, async (req, res) => {
+router.get("/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
 
@@ -54,7 +53,7 @@ router.get("/:userId", authMiddleware, async (req, res) => {
 //
 // Invalidates the user's profile cache entry on success.
 // ─────────────────────────────────────────────────────────────────────────────
-router.patch("/:userId", authMiddleware, async (req, res) => {
+router.patch("/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
 
@@ -64,8 +63,8 @@ router.patch("/:userId", authMiddleware, async (req, res) => {
 
         const updates = {};
         // Privileged fields that only admins may change
-        const adminOnlyFields = ["role"];
-        const allowedFields = ["name", "email", "role", "rtc", "isActive"];
+        const adminOnlyFields = ["role", "isActive"];
+        const allowedFields = ["name", "email", "role", "rtc"];
         
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) {
@@ -113,7 +112,7 @@ router.patch("/:userId", authMiddleware, async (req, res) => {
 //
 // Invalidates the user's profile cache entry.
 // ─────────────────────────────────────────────────────────────────────────────
-router.delete("/:userId", authMiddleware, async (req, res) => {
+router.delete("/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
 
@@ -143,4 +142,4 @@ router.delete("/:userId", authMiddleware, async (req, res) => {
     }
 })
 
-module.exports = router;
+module.exports = router;

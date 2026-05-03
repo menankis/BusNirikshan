@@ -12,6 +12,8 @@ const { getSubscriber, CHANNEL_PATTERN } = require("../utils/pubsub");
 const subscriptions = new Map();   // busId → Set<ws>
 const clientBuses   = new WeakMap(); // ws    → Set<busId>
 
+const MAX_SUBS_PER_CLIENT = 50; // cumulative cap per WebSocket connection
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,8 +143,17 @@ function locationWsHandler(ws, _req) {
             .slice(0, 50);
 
         if (type === "subscribe") {
-            for (const busId of valid) addSub(ws, busId);
-            send(ws, { type: "ack", action: "subscribed", busIds: valid });
+            const existing = clientBuses.get(ws)?.size ?? 0;
+            const slotsRemaining = MAX_SUBS_PER_CLIENT - existing;
+            if (slotsRemaining <= 0) {
+                return send(ws, {
+                    type: "error",
+                    message: `Subscription limit reached (max ${MAX_SUBS_PER_CLIENT} buses per connection)`
+                });
+            }
+            const toAdd = valid.slice(0, slotsRemaining);
+            for (const busId of toAdd) addSub(ws, busId);
+            send(ws, { type: "ack", action: "subscribed", busIds: toAdd });
 
         } else if (type === "unsubscribe") {
             for (const busId of valid) removeSub(ws, busId);

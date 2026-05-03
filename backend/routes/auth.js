@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
-const dotenv = require("dotenv");
 const jwt = require("jsonwebtoken");
+const { accountLimiter, forgotPasswordLimiter, refreshLimiter } = require("../utils/rateLimiters");
 
 const User = require("../models/user");
 const RefreshToken = require("../models/refreshtoken");
@@ -10,8 +10,6 @@ const authorise = require("../middleware/authorise");
 const { transporter } = require("../utils/mailer");
 const { validatePassword } = require("../utils/validation");
 
-dotenv.config();
-
 const router = express.Router();
 
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10) || 10;
@@ -19,7 +17,7 @@ const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
 
-router.post("/register", async (req, res) => {
+router.post("/register", accountLimiter, async (req, res) => {
     try {
         const {name, email, password, role, rtc} = req.body;
 
@@ -50,7 +48,7 @@ router.post("/register", async (req, res) => {
     }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", accountLimiter, async (req, res) => {
     try {
         const {email, password} = req.body;
 
@@ -84,7 +82,7 @@ router.post("/login", async (req, res) => {
 
         res.cookie("refresh_token", refresh_token, {
             httpOnly: true,
-            secure: false,
+            secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
@@ -132,7 +130,7 @@ router.post("/logout-all", authorise, async (req, res) => {
 });
 
 
-router.post("/refresh", async (req, res) => {
+router.post("/refresh", refreshLimiter, async (req, res) => {
     try {
         const refresh_token = req.cookies.refresh_token;
         if(!refresh_token){
@@ -163,6 +161,9 @@ router.post("/refresh", async (req, res) => {
         const new_refresh_token = jwt.sign({userId: user._id, email: user.email}, REFRESH_TOKEN_SECRET, {expiresIn: "7d"});
 
         // Replace only this specific session's token (token rotation — old token is deleted, new one is inserted)
+        // upsert: false — if the token doc disappeared (e.g. concurrent logout-all), rotation fails
+        // and the client will get 200 with a new token but it won't be persisted,
+        // causing a proper 403 on the next refresh (desired behaviour).
         await RefreshToken.findOneAndReplace(
             { token: refresh_token },
             {
@@ -170,13 +171,12 @@ router.post("/refresh", async (req, res) => {
                 email: user.email,
                 token: new_refresh_token,
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-            },
-            { upsert: true }
+            }
         );
 
         res.cookie("refresh_token", new_refresh_token, {
             httpOnly: true,
-            secure: false,
+            secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
@@ -194,7 +194,7 @@ router.post("/refresh", async (req, res) => {
     }
 });
 
-router.post("/forgot-password", async (req, res) => {
+router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
     try {
         const {email} = req.body;
 
@@ -203,8 +203,9 @@ router.post("/forgot-password", async (req, res) => {
         }
 
         const user = await User.findOne({email});
+        // Return 200 regardless — never reveal whether an email is registered (user enumeration)
         if(!user) {
-            return res.status(404).json({message: "User not found"});
+            return res.status(200).json({message: "Password reset link sent to your email"});
         }
 
         const resetToken = jwt.sign({userId: user._id, email: user.email}, RESET_TOKEN_SECRET, {expiresIn: "15min"});
@@ -235,8 +236,8 @@ router.post("/forgot-password", async (req, res) => {
         };
         
         if(await transporter.verify()){
-            await transporter.sendMail(mailOptions);
-            res.status(200).json({message: "Password reset link sent to your email"});
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({message: "Password reset link sent to your email"});
         }
         else{
             console.error("Can't verify transporter")
@@ -261,13 +262,14 @@ router.post("/reset-password", async (req, res) => {
         }
 
         const decoded = jwt.verify(token, RESET_TOKEN_SECRET);
-        const tokenDoc = await PasswordResetToken.findOne({ token });
+        // Atomic check-and-mark: a single DB operation prevents concurrent replay attacks.
+        // If two requests race with the same token, only one finds used=false and wins.
+        const tokenDoc = await PasswordResetToken.findOneAndUpdate(
+            { token, used: false },
+            { $set: { used: true } }
+        );
         if (!tokenDoc) {
             return res.status(403).json({ message: "Invalid or expired reset token" });
-        }
-        // Guard against token replay attacks — once used, it can never be used again
-        if (tokenDoc.used) {
-            return res.status(403).json({ message: "Reset token has already been used" });
         }
 
         const user = await User.findById(decoded.userId);
@@ -283,8 +285,7 @@ router.post("/reset-password", async (req, res) => {
         const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
         await User.updateOne({ _id: user._id }, { passwordHash });
 
-        // Mark as used first (atomic guard), then clean up all reset tokens for this user
-        await PasswordResetToken.updateOne({ token }, { used: true });
+        // Token already marked used atomically above — just clean up remaining tokens
         await PasswordResetToken.deleteMany({ userId: user._id });
 
         // Security: revoke ALL active sessions — a password change must invalidate every device

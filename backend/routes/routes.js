@@ -1,6 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const authMiddleware = require("../middleware/authorise");
+const requireRole = require("../middleware/requireRole");
 const Route = require("../models/route");
 const Bus = require("../models/bus");
 const { getOrSet, invalidate, stableQueryString } = require("../utils/cache");
@@ -79,6 +79,9 @@ router.get("/:routeId", async (req, res) => {
     try {
         const { routeId } = req.params;
 
+        if (!mongoose.isValidObjectId(routeId)) {
+            return res.status(400).json({ message: "Validation Error: 'routeId' is not a valid ObjectId" });
+        }
         const route = await getOrSet(`routes:detail:${routeId}`, TTL.ROUTE_DETAIL, () =>
             Route.findById(routeId)
         );
@@ -96,11 +99,8 @@ router.get("/:routeId", async (req, res) => {
 // POST /api/routes — admin only
 // Invalidates all route list pages (total count changes)
 // ─────────────────────────────────────────────────────────────────────────────
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Only admins can create routes" });
-        }
 
         const { name, rtc, stopIds, totalDistanceKm, estimatedDurationMin, isActive } = req.body;
 
@@ -138,11 +138,8 @@ router.post("/", authMiddleware, async (req, res) => {
 // PATCH /api/routes/:routeId — admin only
 // Invalidates detail + all list pages + this route's bus list pages
 // ─────────────────────────────────────────────────────────────────────────────
-router.patch("/:routeId", authMiddleware, async (req, res) => {
+router.patch("/:routeId", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Only admins can update routes" });
-        }
 
         const { routeId } = req.params;
         const { name, rtc, stopIds, totalDistanceKm, estimatedDurationMin, isActive } = req.body;
@@ -192,13 +189,12 @@ router.patch("/:routeId", authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/routes/:routeId — admin only
 // ─────────────────────────────────────────────────────────────────────────────
-router.delete("/:routeId", authMiddleware, async (req, res) => {
+router.delete("/:routeId", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Only admins can delete routes" });
-        }
-
         const { routeId } = req.params;
+        if (!mongoose.isValidObjectId(routeId)) {
+            return res.status(400).json({ message: "Validation Error: 'routeId' is not a valid ObjectId" });
+        }
         const deletedRoute = await Route.findByIdAndDelete(routeId);
 
         if (!deletedRoute) return res.status(404).json({ message: "Route not found" });

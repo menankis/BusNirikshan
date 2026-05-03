@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const authorise = require("../middleware/authorise");
+const requireRole = require("../middleware/requireRole");
 const Bus = require("../models/bus");
 const BusLocation = require("../models/buslocation");
 const Stop = require("../models/stop");
@@ -85,16 +85,19 @@ router.get("/:busId", async (req, res) => {
 
 // POST /api/buses — admin only
 // Invalidates all list pages (new bus shifts pagination for every page)
-router.post("/", authorise, async (req, res) => {
+router.post("/", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Not allowed to create buses" });
-        }
 
         const { routeId, rtc, routeName, registrationNumber, capacity, driverId, isActive } = req.body;
 
-        if (!routeId || !rtc || !routeName || !registrationNumber || !capacity) {
+        if (!routeId || !rtc || !routeName || !registrationNumber || capacity === undefined || capacity === null) {
             return res.status(400).json({ message: "Missing required fields" });
+        }
+        if (!mongoose.isValidObjectId(routeId)) {
+            return res.status(400).json({ message: "Validation Error: 'routeId' is not a valid ObjectId" });
+        }
+        if (driverId !== undefined && driverId !== null && !mongoose.isValidObjectId(driverId)) {
+            return res.status(400).json({ message: "Validation Error: 'driverId' is not a valid ObjectId" });
         }
 
         const existingBus = await Bus.findOne({ registrationNumber });
@@ -120,11 +123,8 @@ router.post("/", authorise, async (req, res) => {
 
 // PATCH /api/buses/:busId — admin only
 // Invalidates detail, status, eta, and ALL list pages
-router.patch("/:busId", authorise, async (req, res) => {
+router.patch("/:busId", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Not allowed to update buses" });
-        }
 
         const { busId } = req.params;
         if (!mongoose.isValidObjectId(busId)) {
@@ -201,11 +201,8 @@ router.patch("/:busId", authorise, async (req, res) => {
 });
 
 // DELETE /api/buses/:busId — admin only
-router.delete("/:busId", authorise, async (req, res) => {
+router.delete("/:busId", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Not allowed to delete buses" });
-        }
 
         const { busId } = req.params;
         if (!mongoose.isValidObjectId(busId)) {
@@ -326,10 +323,6 @@ router.get("/:busId/eta", async (req, res) => {
             return res.status(400).json({ message: "Validation Error: 'stopId' is not a valid ObjectId" });
         }
 
-        if (!stopId) {
-            return res.status(400).json({ message: "stopId query parameter is required." });
-        }
-
         const cacheKey = `buses:eta:${busId}:${stopId}`;
 
         const etaResult = await getOrSet(cacheKey, TTL.BUS_ETA, async () => {
@@ -338,12 +331,14 @@ router.get("/:busId/eta", async (req, res) => {
                 Stop.findById(stopId, 'location')
             ]);
 
-            if (!bus || !stop) return null;
+            if (!bus)  return { error: "bus_not_found" };
+            if (!stop) return { error: "stop_not_found" };
 
-            if (!bus.lastKnownLocation?.coordinates?.length >= 2) {
+            // Fixed: correct operator precedence — !(x >= 2), not (!x) >= 2
+            if (!(bus.lastKnownLocation?.coordinates?.length >= 2)) {
                 return { error: "no_location" };
             }
-            if (!stop.location?.coordinates?.length >= 2) {
+            if (!(stop.location?.coordinates?.length >= 2)) {
                 return { error: "invalid_stop" };
             }
 
@@ -361,21 +356,12 @@ router.get("/:busId/eta", async (req, res) => {
             };
         });
 
-        if (!etaResult) {
-            const [bus, stop] = await Promise.all([
-                Bus.exists({ _id: busId }),
-                Stop.exists({ _id: stopId })
-            ]);
-            if (!bus)  return res.status(404).json({ message: "Bus not found" });
-            if (!stop) return res.status(404).json({ message: "Stop not found" });
-        }
+        if (!etaResult) return res.status(500).json({ message: "Could not calculate ETA." });
 
-        if (etaResult?.error === "no_location") {
-            return res.status(400).json({ message: "Bus location is currently unknown." });
-        }
-        if (etaResult?.error === "invalid_stop") {
-            return res.status(400).json({ message: "Stop location is invalid." });
-        }
+        if (etaResult.error === "bus_not_found")  return res.status(404).json({ message: "Bus not found" });
+        if (etaResult.error === "stop_not_found") return res.status(404).json({ message: "Stop not found" });
+        if (etaResult.error === "no_location")    return res.status(400).json({ message: "Bus location is currently unknown." });
+        if (etaResult.error === "invalid_stop")   return res.status(400).json({ message: "Stop location is invalid." });
 
         res.status(200).json({ message: "ETA calculated successfully", ...etaResult });
     } catch (error) {

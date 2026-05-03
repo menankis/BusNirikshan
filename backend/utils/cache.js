@@ -35,7 +35,15 @@ function getClient() {
 function stableQueryString(queryObj) {
     return Object.keys(queryObj)
         .sort()
-        .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(queryObj[k])}`)
+        .flatMap(k => {
+            const v = queryObj[k];
+            // Array values (e.g. ?rtc=GSRTC&rtc=MSRTC) produce one pair per element
+            // so they generate a different key from the single-value ?rtc=GSRTC,MSRTC
+            if (Array.isArray(v)) {
+                return v.map(item => `${encodeURIComponent(k)}=${encodeURIComponent(item)}`);
+            }
+            return `${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
+        })
         .join("&");
 }
 

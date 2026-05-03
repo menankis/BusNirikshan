@@ -1,8 +1,9 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Stop = require("../models/stop");
 const Route = require("../models/route");
 const Bus = require("../models/bus");
-const authMiddleware = require("../middleware/authorise");
+const requireRole = require("../middleware/requireRole");
 const { getOrSet, invalidate, stableQueryString } = require("../utils/cache");
 const { parsePagination } = require("../utils/pagination");
 const { getDistanceKm } = require("../utils/geo");
@@ -115,8 +116,12 @@ router.get("/:stopId", async (req, res) => {
     try {
         const { stopId } = req.params;
 
+        if (!mongoose.isValidObjectId(stopId)) {
+            return res.status(400).json({ message: "Validation Error: 'stopId' is not a valid ObjectId" });
+        }
+
         const stop = await getOrSet(`stops:detail:${stopId}`, TTL.STOP_DETAIL, () =>
-            Stop.findById(stopId)
+            Stop.findById(stopId).lean()
         );
 
         if (!stop) return res.status(404).json({ message: "Stop not found" });
@@ -131,11 +136,8 @@ router.get("/:stopId", async (req, res) => {
 // POST /api/stops — admin only
 // Invalidates all list pages + nearby (new stop changes proximity results)
 // ─────────────────────────────────────────────────────────────────────────────
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Not allowed to create stops" });
-        }
 
         const { name, city, state, rtc, location, latitude, longitude, isActive } = req.body;
 
@@ -150,7 +152,18 @@ router.post("/", authMiddleware, async (req, res) => {
         if (location && location.coordinates) {
             stopLocation = { type: 'Point', coordinates: location.coordinates };
         } else if (longitude !== undefined && latitude !== undefined) {
-            stopLocation = { type: 'Point', coordinates: [longitude, latitude] };
+            const parsedLng = parseFloat(longitude);
+            const parsedLat = parseFloat(latitude);
+            if (isNaN(parsedLng) || isNaN(parsedLat)) {
+                return res.status(400).json({ message: "Validation Error: 'latitude' and 'longitude' must be valid numbers" });
+            }
+            if (parsedLat < -90 || parsedLat > 90) {
+                return res.status(400).json({ message: "Validation Error: 'latitude' must be between -90 and 90" });
+            }
+            if (parsedLng < -180 || parsedLng > 180) {
+                return res.status(400).json({ message: "Validation Error: 'longitude' must be between -180 and 180" });
+            }
+            stopLocation = { type: 'Point', coordinates: [parsedLng, parsedLat] };
         } else {
             return res.status(400).json({ message: "Missing required fields: location or latitude/longitude" });
         }
@@ -175,11 +188,8 @@ router.post("/", authMiddleware, async (req, res) => {
 // PATCH /api/stops/:stopId — admin only
 // Invalidates detail + all list pages + nearby + buses-at-stop
 // ─────────────────────────────────────────────────────────────────────────────
-router.patch("/:stopId", authMiddleware, async (req, res) => {
+router.patch("/:stopId", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Not allowed to update stops" });
-        }
 
         const { stopId } = req.params;
         const { name, city, state, rtc, location, latitude, longitude, isActive } = req.body;
@@ -198,9 +208,23 @@ router.patch("/:stopId", authMiddleware, async (req, res) => {
         }
 
         if (location && location.coordinates) {
+            if (!Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
+                return res.status(400).json({ message: "Validation Error: 'location.coordinates' must be a [lng, lat] array" });
+            }
             updateData.location = { type: 'Point', coordinates: location.coordinates };
         } else if (longitude !== undefined && latitude !== undefined) {
-            updateData.location = { type: 'Point', coordinates: [longitude, latitude] };
+            const parsedLng = parseFloat(longitude);
+            const parsedLat = parseFloat(latitude);
+            if (isNaN(parsedLng) || isNaN(parsedLat)) {
+                return res.status(400).json({ message: "Validation Error: 'latitude' and 'longitude' must be valid numbers" });
+            }
+            if (parsedLat < -90 || parsedLat > 90) {
+                return res.status(400).json({ message: "Validation Error: 'latitude' must be between -90 and 90" });
+            }
+            if (parsedLng < -180 || parsedLng > 180) {
+                return res.status(400).json({ message: "Validation Error: 'longitude' must be between -180 and 180" });
+            }
+            updateData.location = { type: 'Point', coordinates: [parsedLng, parsedLat] };
         }
 
         if (Object.keys(updateData).length === 0) {
@@ -232,13 +256,13 @@ router.patch("/:stopId", authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/stops/:stopId — admin only
 // ─────────────────────────────────────────────────────────────────────────────
-router.delete("/:stopId", authMiddleware, async (req, res) => {
+router.delete("/:stopId", requireRole("admin"), async (req, res) => {
     try {
-        if (req.user.role !== "admin") {
-            return res.status(403).json({ message: "Forbidden: Not allowed to delete stops" });
-        }
 
         const { stopId } = req.params;
+        if (!mongoose.isValidObjectId(stopId)) {
+            return res.status(400).json({ message: "Validation Error: 'stopId' is not a valid ObjectId" });
+        }
         const deletedStop = await Stop.findByIdAndDelete(stopId);
 
         if (!deletedStop) return res.status(404).json({ message: "Stop not found" });
