@@ -14,26 +14,26 @@ const locationRoutes = require("./routes/location");
 const routeRoutes = require("./routes/routes");
 const { locationWsHandler, startRedisSubscriber } = require("./routes/locationWs");
 const authorise = require("./middleware/authorise");
-const { userApiLimiter } = require("./utils/rateLimiters");
+const { userApiLimiter } = require("./middleware/rateLimiters");
 
 const app = express();
 expressWs(app);   // patches app with app.ws() support
 
 app.use(express.json());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true
+  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  credentials: true
 }));
 app.use(morgan("dev"));
 app.use(cookieParser())
 
 
 app.use("/api/auth", authRoutes);
-app.use("/api/user",      authorise, userApiLimiter, userRoutes);
-app.use("/api/stops",     authorise, userApiLimiter, stopRoutes);
-app.use("/api/buses",     authorise, userApiLimiter, busRoutes);
+app.use("/api/user", authorise, userApiLimiter, userRoutes);
+app.use("/api/stops", authorise, userApiLimiter, stopRoutes);
+app.use("/api/buses", authorise, userApiLimiter, busRoutes);
 app.use("/api/locations", authorise, userApiLimiter, locationRoutes);
-app.use("/api/routes",    authorise, userApiLimiter, routeRoutes);
+app.use("/api/routes", authorise, userApiLimiter, routeRoutes);
 
 // WebSocket endpoint — ws://host/api/locations/live
 app.ws("/api/locations/live", authorise, locationWsHandler);
@@ -41,7 +41,7 @@ app.ws("/api/locations/live", authorise, locationWsHandler);
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI
 app.get("/", (req, res) => {
-    res.send("Hello World!");
+  res.send("Hello World!");
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

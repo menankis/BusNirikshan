@@ -4,13 +4,9 @@ const Redis = require("ioredis");
 // Redis Pub/Sub Clients
 //
 // Redis requires SEPARATE connections for pub and sub roles.
-// The cache client in cache.js cannot be reused here.
-//
-// REDIS_PUBSUB_URL  — dedicated URL for pub/sub (e.g. a self-hosted Redis)
-// Falls back to REDIS_URL if not set.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PUBSUB_URL = process.env.REDIS_PUBSUB_URL || process.env.REDIS_URL;
+const PUBSUB_URL = process.env.REDIS_URL;
 
 const REDIS_OPTS = {
     maxRetriesPerRequest: null,   // subscriber must retry indefinitely
