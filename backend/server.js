@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const expressWs = require("express-ws");
 const cors = require("cors");
 const morgan = require("morgan");
 const jwt = require("jsonwebtoken");
@@ -12,8 +13,10 @@ const stopRoutes = require("./routes/stops")
 const busRoutes = require("./routes/buses")
 const locationRoutes = require("./routes/location")
 const routeRoutes = require("./routes/routes")
+const { locationWsHandler, startRedisSubscriber } = require("./routes/locationWs")
 
 const app = express();
+expressWs(app);   // patches app with app.ws() support
 
 app.use(express.json());
 app.use(cors({
@@ -30,6 +33,9 @@ app.use("/api/buses", busRoutes)
 app.use("/api/locations", locationRoutes)
 app.use("/api/routes", routeRoutes)
 
+// WebSocket endpoint — ws://host/api/locations/live
+app.ws("/api/locations/live", locationWsHandler);
+
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI
 
@@ -43,6 +49,8 @@ mongoose.connect(MONGODB_URI)
     console.log('Connected to MongoDB');
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      // Start the Redis pub/sub subscriber after the server is up
+      startRedisSubscriber();
     });
   })
   .catch(err => {

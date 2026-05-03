@@ -6,6 +6,7 @@ const Bus = require("../models/bus");
 const BusLocation = require("../models/buslocation");
 const Shift = require("../models/shift");
 const { getOrSet, invalidate, stableQueryString } = require("../utils/cache");
+const { publish } = require("../utils/pubsub");
 
 const router = express.Router();
 
@@ -172,6 +173,15 @@ router.post("/", authorise, async (req, res) => {
             `buses:eta:${busId}:*`,          // ETA to any stop from this bus
             "stops:buses:*"                  // ETA boards at every stop
         );
+
+        // ── 7. Pub/Sub — push to WebSocket subscribers (fire-and-forget) ─────
+        publish(busId.toString(), {
+            lat:         parsedLat,
+            lng:         parsedLng,
+            ...(parsedSpeed   !== undefined && { speed_kmh:   parsedSpeed }),
+            ...(parsedHeading !== undefined && { heading_deg: parsedHeading }),
+            timestamp:   recordedAt
+        }).catch((err) => console.error("[pubsub] publish failed:", err.message));
 
         return res.status(201).json({ message: "GPS location updated successfully" });
     } catch (error) {
