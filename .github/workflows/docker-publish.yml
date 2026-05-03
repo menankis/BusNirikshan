@@ -48,7 +48,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/busnirikshan:backend
-            ${{ secrets.DOCKERHUB_USERNAME }}/busnirikshan:backend-${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
@@ -63,6 +62,5 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/busnirikshan:frontend
-            ${{ secrets.DOCKERHUB_USERNAME }}/busnirikshan:frontend-${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
