@@ -23,11 +23,6 @@ const busSchema = new mongoose.Schema({
     type: Number, 
     required: true 
   },
-  driverId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Driver',
-    default: null 
-  },
   isActive: { 
     type: Boolean, 
     default: false // Defaults to false until they start their shift
@@ -52,7 +47,6 @@ const busSchema = new mongoose.Schema({
 // Define your indexes
 busSchema.index({ rtc: 1, isActive: 1 });
 busSchema.index({ routeId: 1 });
-busSchema.index({ driverId: 1 });
 // sparse: true — skips buses with no location yet (off-shift) so they don't fail the 2dsphere constraint
 busSchema.index({ lastKnownLocation: '2dsphere' }, { sparse: true });
 busSchema.index({ 'lastKnownLocation.recordedAt': 1 });

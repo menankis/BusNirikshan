@@ -88,16 +88,13 @@ router.get("/:busId", async (req, res) => {
 router.post("/", requireRole("admin"), async (req, res) => {
     try {
 
-        const { routeId, rtc, routeName, registrationNumber, capacity, driverId, isActive } = req.body;
+        const { routeId, rtc, routeName, registrationNumber, capacity, isActive } = req.body;
 
         if (!routeId || !rtc || !routeName || !registrationNumber || capacity === undefined || capacity === null) {
             return res.status(400).json({ message: "Missing required fields" });
         }
         if (!mongoose.isValidObjectId(routeId)) {
             return res.status(400).json({ message: "Validation Error: 'routeId' is not a valid ObjectId" });
-        }
-        if (driverId !== undefined && driverId !== null && !mongoose.isValidObjectId(driverId)) {
-            return res.status(400).json({ message: "Validation Error: 'driverId' is not a valid ObjectId" });
         }
 
         const existingBus = await Bus.findOne({ registrationNumber });
@@ -107,7 +104,6 @@ router.post("/", requireRole("admin"), async (req, res) => {
 
         const newBus = new Bus({
             routeId, rtc, routeName, registrationNumber, capacity,
-            driverId: driverId || null,
             isActive: isActive !== undefined ? isActive : false
         });
 
@@ -133,7 +129,7 @@ router.patch("/:busId", requireRole("admin"), async (req, res) => {
 
         const {
             routeId, rtc, routeName, registrationNumber, capacity,
-            driverId, isActive, location, latitude, longitude,
+            isActive, location, latitude, longitude,
             speed_kmh, heading_deg
         } = req.body;
 
@@ -143,7 +139,6 @@ router.patch("/:busId", requireRole("admin"), async (req, res) => {
         if (routeName !== undefined)           updateData.routeName = routeName;
         if (registrationNumber !== undefined)  updateData.registrationNumber = registrationNumber;
         if (capacity !== undefined)            updateData.capacity = capacity;
-        if (driverId !== undefined)            updateData.driverId = driverId;
         if (isActive !== undefined)            updateData.isActive = isActive;
 
         if (location && location.coordinates) {
