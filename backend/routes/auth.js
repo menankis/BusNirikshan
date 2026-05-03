@@ -1,11 +1,12 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { accountLimiter, forgotPasswordLimiter, refreshLimiter } = require("../middleware/rateLimiters");
+const { accountLimiter, forgotPasswordLimiter, otpLimiter, refreshLimiter } = require("../middleware/rateLimiters");
 
 const User = require("../models/user");
 const RefreshToken = require("../models/refreshtoken");
 const PasswordResetToken = require("../models/passwordresettoken");
+const OtpToken = require("../models/otptoken");
 const authorise = require("../middleware/authorise");
 const { transporter } = require("../utils/mailer");
 const { validatePassword } = require("../utils/validation");
@@ -17,9 +18,23 @@ const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
 
-router.post("/register", accountLimiter, async (req, res) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /register/init
+//
+// Step 1 of 2 — validate the registration details, generate a 6-digit OTP,
+// store a bcrypt hash of it (+ the pending user snapshot) in OtpToken, then
+// email the code.  The real User document is NOT created yet.
+//
+// Re-sending to the same email cancels any previous pending OTP first so only
+// one valid code exists at a time.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/register/init", otpLimiter, async (req, res) => {
     try {
         const { name, email, password, role, rtc } = req.body;
+
+        if (!name || !email || !password || !role) {
+            return res.status(400).json({ message: "Name, email, password, and role are required" });
+        }
 
         const passwordError = validatePassword(password);
         if (passwordError) {
@@ -30,18 +45,90 @@ router.post("/register", accountLimiter, async (req, res) => {
             return res.status(400).json({ message: "User already exists" });
         }
 
+        // Invalidate any previous pending OTP for this email before issuing a new one
+        await OtpToken.deleteMany({ email });
+
+        // Hash the password now so /verify doesn't need the plaintext again
         const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-        const user = new User({
-            name,
+        // Generate a cryptographically random 6-digit OTP
+        const rawCode = String(Math.floor(100000 + Math.random() * 900000));
+        const codeHash = await bcrypt.hash(rawCode, SALT_ROUNDS);
+
+        await OtpToken.create({
             email,
-            passwordHash,
-            role,
-            rtc
+            codeHash,
+            pendingData: { name, passwordHash, role, rtc: rtc || null },
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000)  // 10 minutes
         });
 
-        await user.save();
-        res.status(201).json({ message: "User created successfully" });
+        const mailOptions = {
+            from: process.env.SMTP_USER,
+            to: email,
+            subject: "BusNirikshan — Verify your email",
+            html: `<p>Hello ${name},</p>
+                   <p>Use the code below to complete your registration. It expires in <strong>10 minutes</strong>.</p>
+                   <h2 style="letter-spacing:4px">${rawCode}</h2>
+                   <p>If you did not request this, please ignore this email.</p>`
+        };
+
+        if (await transporter.verify()) {
+            await transporter.sendMail(mailOptions);
+            return res.status(200).json({ message: "OTP sent to your email. Please verify to complete registration." });
+        } else {
+            console.error("Cannot verify SMTP transporter");
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /register/verify
+//
+// Step 2 of 2 — the client submits the OTP received by email.  A single atomic
+// findOneAndUpdate marks the token used so concurrent replays are impossible.
+// On success, the pending user snapshot is promoted to a real User document.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/register/verify", otpLimiter, async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ message: "Email and OTP are required" });
+        }
+
+        // Find the latest unused, unexpired token for this email
+        const tokenDoc = await OtpToken.findOne({ email, used: false });
+        if (!tokenDoc) {
+            return res.status(400).json({ message: "No pending OTP for this email. Please request a new one." });
+        }
+
+        const isCodeValid = await bcrypt.compare(String(otp), tokenDoc.codeHash);
+        if (!isCodeValid) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        // Atomic mark-used — prevents concurrent replay within the same window
+        const claimed = await OtpToken.findOneAndUpdate(
+            { _id: tokenDoc._id, used: false },
+            { $set: { used: true } }
+        );
+        if (!claimed) {
+            return res.status(400).json({ message: "OTP already used. Please request a new one." });
+        }
+
+        // Guard against a race where the email was registered between /init and /verify
+        if (await User.findOne({ email })) {
+            return res.status(400).json({ message: "User already exists" });
+        }
+
+        const { name, passwordHash, role, rtc } = tokenDoc.pendingData;
+        await User.create({ name, email, passwordHash, role, rtc });
+
+        res.status(201).json({ message: "Registration successful. You can now log in." });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Internal server error" });

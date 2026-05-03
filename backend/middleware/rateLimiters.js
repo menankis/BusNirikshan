@@ -64,6 +64,26 @@ const forgotPasswordLimiter = rateLimit({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// otpLimiter
+//
+// Guards POST /register/init (send OTP) and POST /register/verify (check OTP).
+// Keyed on email — prevents brute-forcing the 6-digit code and stops OTP spam
+// to a victim's inbox regardless of whether the attacker rotates IPs.
+// Falls back to IP when no email is present.
+// ─────────────────────────────────────────────────────────────────────────────
+const otpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15-minute window
+    max: 5,
+    keyGenerator: (req) => {
+        const email = (req.body?.email || "").toLowerCase().trim();
+        return email ? `otp:${email}` : req.ip;
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many OTP attempts for this address. Please try again in 15 minutes." }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // refreshLimiter
 //
 // Keyed on the userId decoded from the refresh token cookie.
@@ -93,4 +113,4 @@ const refreshLimiter = rateLimit({
     message: { message: "Too many token refresh requests. Please try again later." }
 });
 
-module.exports = { userApiLimiter, accountLimiter, forgotPasswordLimiter, refreshLimiter };
+module.exports = { userApiLimiter, accountLimiter, forgotPasswordLimiter, otpLimiter, refreshLimiter };
