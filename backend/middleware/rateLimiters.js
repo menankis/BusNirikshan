@@ -1,4 +1,5 @@
 const rateLimit = require("express-rate-limit");
+const { ipKeyGenerator } = require("express-rate-limit");
 const jwt = require("jsonwebtoken");
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ const accountLimiter = rateLimit({
     max: 10,
     keyGenerator: (req) => {
         const email = (req.body?.email || "").toLowerCase().trim();
-        return email ? `account:${email}` : req.ip;
+        return email ? `account:${email}` : ipKeyGenerator(req);
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -56,7 +57,7 @@ const forgotPasswordLimiter = rateLimit({
     max: 5,
     keyGenerator: (req) => {
         const email = (req.body?.email || "").toLowerCase().trim();
-        return email ? `reset:${email}` : req.ip;
+        return email ? `reset:${email}` : ipKeyGenerator(req);
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -76,7 +77,7 @@ const otpLimiter = rateLimit({
     max: 5,
     keyGenerator: (req) => {
         const email = (req.body?.email || "").toLowerCase().trim();
-        return email ? `otp:${email}` : req.ip;
+        return email ? `otp:${email}` : ipKeyGenerator(req);
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -106,7 +107,7 @@ const refreshLimiter = rateLimit({
                 if (decoded?.userId) return `refresh:${decoded.userId}`;
             }
         } catch { /* fall through to IP */ }
-        return req.ip;
+        return ipKeyGenerator(req);
     },
     standardHeaders: true,
     legacyHeaders: false,

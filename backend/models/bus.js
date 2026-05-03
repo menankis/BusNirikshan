@@ -47,7 +47,6 @@ const busSchema = new mongoose.Schema({
 // Define your indexes
 busSchema.index({ rtc: 1, isActive: 1 });
 busSchema.index({ routeId: 1 });
-busSchema.index({ registrationNumber: 1 });
 // sparse: true — skips buses with no location yet (off-shift) so they don't fail the 2dsphere constraint
 busSchema.index({ lastKnownLocation: '2dsphere' }, { sparse: true });
 busSchema.index({ 'lastKnownLocation.recordedAt': 1 });
