@@ -1,4 +1,4 @@
-name: Build & Push Docker Images
+name: Build, Push & Deploy
 
 on:
   push:
@@ -66,3 +66,46 @@ jobs:
             VITE_API_URL=https://busnirikshanapi.mauliksharma.org
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+  # ── Job 2: SSH into server and redeploy via docker compose ──────────────────
+  #
+  #  One-time setup – add these GitHub secrets:
+  #    SSH_HOST             → server IP or hostname
+  #    SSH_USER             → SSH login user (e.g. ubuntu, root)
+  #    SSH_PRIVATE_KEY      → private key whose public half is in ~/.ssh/authorized_keys
+  #    COMPOSE_FILE_PATH    → absolute path to docker-compose.yml on the server
+  #                           e.g. /home/ubuntu/busnirikshan/docker-compose.yml
+  #
+  #  Generate a dedicated deploy key (recommended):
+  #    ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
+  #    cat deploy_key.pub >> ~/.ssh/authorized_keys   # on the server
+  #    # paste contents of deploy_key as the SSH_PRIVATE_KEY secret
+  #
+  # redeploy:
+  #   name: Redeploy on server
+  #   needs: build-and-push
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - name: Pull latest images & recreate containers
+  #       uses: appleboy/ssh-action@v1.2.0
+  #       with:
+  #         host: ${{ secrets.SSH_HOST }}
+  #         username: ${{ secrets.SSH_USER }}
+  #         key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #         script: |
+  #           set -e
+  #           COMPOSE_FILE="${{ secrets.COMPOSE_FILE_PATH }}"
+  #           COMPOSE_DIR="$(dirname "$COMPOSE_FILE")"
+
+  #           echo "==> Pulling latest images..."
+  #           docker compose -f "$COMPOSE_FILE" pull
+
+  #           echo "==> Recreating containers..."
+  #           docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+
+  #           echo "==> Cleaning up dangling images..."
+  #           docker image prune -f
+
+  #           echo "==> Running containers in $COMPOSE_DIR:"
+  #           docker compose -f "$COMPOSE_FILE" ps
