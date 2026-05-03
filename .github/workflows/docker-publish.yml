@@ -62,5 +62,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/busnirikshan:frontend
+          build-args: |
+            VITE_API_URL=https://busnirikshanapi.mauliksharma.org
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend

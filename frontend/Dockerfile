@@ -9,6 +9,11 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+# Receive the API URL at build time and expose it to Vite
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN npm run build
 
 # ── Stage 2: serve static files with `serve` ──────────────────────────────────
