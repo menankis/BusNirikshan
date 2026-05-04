@@ -20,7 +20,7 @@ import os
 BASE_URL = "https://busnirikshanapi.mauliksharma.org"
 WS_URL = "wss://busnirikshanapi.mauliksharma.org/api/locations/livewebsocket"
 
-EMAIL = "test@test.com"
+EMAIL = "dragonsoul69420@gmail.com"
 PASSWORD = "Test123@"
 BUS_ID = os.environ.get("TEST_BUS_ID", "dummy_bus_id_1")
 

@@ -8,6 +8,10 @@ Passengers track buses on a live map. Drivers update location every 30 sec via a
 - Shubham Jain(2023BTECH079)
 - Pakhi Sharma(2023BTECH055)
 
+## Deployed At:
+- Frontend: https://busnirikshan.mauliksharma.org
+- Backend: https://busnirikshanapi.mauliksharma.org
+
 ## Key Features & Architecture
 
 ### 1. Real-Time Tracking & Synchronization
