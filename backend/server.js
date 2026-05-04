@@ -6,71 +6,66 @@ const morgan = require("morgan");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 
-const authRoutes = require("./routes/auth");
-const userRoutes = require("./routes/user");
-const stopRoutes = require("./routes/stops");
-const busRoutes = require("./routes/buses");
+const authRoutes     = require("./routes/auth");
+const userRoutes     = require("./routes/user");
+const stopRoutes     = require("./routes/stops");
+const busRoutes      = require("./routes/buses");
 const locationRoutes = require("./routes/location");
-const routeRoutes = require("./routes/routes");
+const routeRoutes    = require("./routes/routes");
 const { locationWsHandler, startRedisSubscriber } = require("./routes/locationWs");
-const authorise = require("./middleware/authorise");
+
+const driverRoutes      = require("./routes/drivers");
+const etaRoutes         = require("./routes/eta");
+const analyticsRoutes   = require("./routes/analytics");
+const adminRoutes       = require("./routes/admin");
+const locationSseRoutes = require("./routes/locationSse");
+
+const authorise       = require("./middleware/authorise");
 const { userApiLimiter } = require("./middleware/rateLimiters");
 
 const app = express();
-expressWs(app);   // patches app with app.ws() support
+expressWs(app);
 app.set("trust proxy", true);
 app.use(express.json());
 app.use(cors({
   origin: [process.env.FRONTEND_URL, "http://localhost:3000", "http://localhost:5173"],
-  credentials: true
+  credentials: true,
 }));
 app.use(morgan("dev"));
-app.use(cookieParser())
+app.use(cookieParser());
 
-
-app.use("/api/auth", authRoutes);
-app.use("/api/user", authorise, userApiLimiter, userRoutes);
-app.use("/api/stops", authorise, userApiLimiter, stopRoutes);
-app.use("/api/buses", authorise, userApiLimiter, busRoutes);
+app.use("/api/auth",      authRoutes);
+app.use("/api/user",      authorise, userApiLimiter, userRoutes);
+app.use("/api/stops",     authorise, userApiLimiter, stopRoutes);
+app.use("/api/buses",     authorise, userApiLimiter, busRoutes);
 app.use("/api/locations", authorise, userApiLimiter, locationRoutes);
-app.use("/api/routes", authorise, userApiLimiter, routeRoutes);
+app.use("/api/routes",    authorise, userApiLimiter, routeRoutes);
 
-// WebSocket endpoint — ws://host/api/locations/live
+app.use("/api/drivers",   authorise, userApiLimiter, driverRoutes);
+app.use("/api/eta",       authorise, userApiLimiter, etaRoutes);
+app.use("/api/analytics", authorise, userApiLimiter, analyticsRoutes);
+app.use("/api/admin",     authorise, adminRoutes);               // no rate limiter for admin ops
+
+app.use("/api/locations", authorise, userApiLimiter, locationSseRoutes);
+
 app.ws("/api/locations/livewebsocket", locationWsHandler);
 
-const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get("/", (req, res) => res.send("BusNirikshan API is running"));
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Global error handler
-//
-// Express 5 automatically forwards async errors thrown in route handlers here.
-// Without this, unhandled errors silently hang the request or crash the process.
-// Must be registered AFTER all routes.
-// ─────────────────────────────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
-// app.use((err, req, res, _next) => {
-//     console.error("[server] Unhandled error:", err);
-//     const status = err.status || err.statusCode || 500;
-//     res.status(status).json({
-//         message: err.expose ? err.message : "Internal server error"
-//     });
-// });
-
+// ── Boot ──────────────────────────────────────────────────────────────────────
+const PORT       = process.env.PORT || 5000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI)
   .then(() => {
-    console.log('Connected to MongoDB');
+    console.log("Connected to MongoDB");
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
-      // Start the Redis pub/sub subscriber after the server is up
       startRedisSubscriber();
     });
   })
-  .catch(err => {
-    console.error('Database connection error:', err);
+  .catch((err) => {
+    console.error("Database connection error:", err);
     process.exit(1);
   });
