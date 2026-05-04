@@ -364,3 +364,87 @@ Passengers track buses on a live map. Drivers update location every 30 sec via a
     ```json
     { "type": "error", "message": "Subscription limit reached (max 50 buses per connection)" }
     ```
+
+
+## API Endpoint to be Implemented
+
+---
+
+### 👨‍✈️ Drivers
+
+| Method | Endpoint | Description | Body / Params |
+|--------|----------|-------------|---------------|
+| GET | `/api/drivers` | List all drivers (admin only) | `?rtc=RSRTC&isActive=true` |
+| GET | `/api/drivers/:driverId` | Get a driver's profile and assigned bus | — |
+| POST | `/api/drivers` | Register a driver (admin only) | `{ userId, rtc, licenseNumber }` |
+| PATCH | `/api/drivers/:driverId` | Update driver's assigned bus or status | `{ busId?, isActive? }` |
+| DELETE | `/api/drivers/:driverId` | Remove a driver (admin only) | — |
+| POST | `/api/drivers/:driverId/shift/start` | Driver starts a shift, activates bus on map | `{ busId }` |
+| POST | `/api/drivers/:driverId/shift/end` | Driver ends shift, deactivates bus on map | — |
+
+---
+
+### ⏱️ ETA
+
+| Method | Endpoint | Description | Body / Params |
+|--------|----------|-------------|---------------|
+| GET | `/api/eta` | Compute ETA for multiple buses to one stop | `?stopId=STOP-001&busIds=GJ01-1234,GJ01-5678` |
+| GET | `/api/eta/stop/:stopId` | Get ETAs for all approaching buses to a stop | `?radius_km=10` |
+
+---
+
+### 📊 Analytics / History (Admin & Dev)
+
+| Method | Endpoint | Description | Body / Params |
+|--------|----------|-------------|---------------|
+| GET | `/api/analytics/bus/:busId/trail` | Full GPS trail for a bus over a date range | `?from=<epoch>&to=<epoch>` |
+| GET | `/api/analytics/bus/:busId/speed` | Average speed per hour for a bus | `?date=2026-04-13` |
+| GET | `/api/analytics/stops/:stopId/traffic` | How many buses passed a stop per hour | `?date=2026-04-13` |
+| GET | `/api/analytics/system/active-buses` | Count of currently active buses across all RTCs | — |
+
+---
+
+### 🔔 Notifications (Stretch Goal)
+
+| Method | Endpoint | Description | Body / Params |
+|--------|----------|-------------|---------------|
+| POST | `/api/notifications/subscribe` | Passenger subscribes to alerts for a stop + route | `{ stopId, routeId, thresholdMinutes: 5 }` |
+| DELETE | `/api/notifications/subscribe` | Unsubscribe from alerts | `{ stopId, routeId }` |
+| GET | `/api/notifications` | List a passenger's active subscriptions | — |
+
+---
+
+### 🛠️ Admin
+
+| Method | Endpoint | Description | Body / Params |
+|--------|----------|-------------|---------------|
+| GET | `/api/admin/users` | List all users with roles | `?role=driver&page=1` |
+| PATCH | `/api/admin/users/:userId/role` | Change a user's role | `{ role: "admin"\|"driver"\|"passenger" }` |
+| GET | `/api/admin/system/health` | Server health check (Redis, MongoDB, Node instances) | — |
+| GET | `/api/admin/system/instances` | List active Node instances registered with Redis | — |
+
+---
+
+### SSE
+
+| SSE | `/api/locations/livesse` | Alternative SSE feed of all bus location updates (benchmark use) |
+
+---
+
+### Summary Count
+
+| Category | Count |
+|----------|-------|
+| Auth | 7 |
+| Users | 3 |
+| Buses | 8 |
+| Location | 3 |
+| Stops | 7 |
+| Routes | 6 |
+| Drivers | 7 |
+| ETA | 2 |
+| Analytics | 4 |
+| Notifications | 3 |
+| Admin | 4 |
+| Real-Time (WS/SSE) | 3 |
+| **Total** | **57** |
