@@ -36,7 +36,7 @@ app.use("/api/locations", authorise, userApiLimiter, locationRoutes);
 app.use("/api/routes", authorise, userApiLimiter, routeRoutes);
 
 // WebSocket endpoint — ws://host/api/locations/live
-app.ws("/api/locations/live", authorise, locationWsHandler);
+app.ws("/api/locations/livewebsocket", locationWsHandler);
 
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI

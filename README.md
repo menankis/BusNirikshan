@@ -329,7 +329,7 @@ Passengers track buses on a live map. Drivers update location every 30 sec via a
 ### WebSockets (`ws://...`)
 
 #### 1. Real-Time Location Feed
-- **Endpoint**: `ws://<host>/api/locations/live`
+- **Endpoint**: `ws://<host>/api/locations/livewebsocket`
 - **Headers Required**: Connection requires authentication via `Authorization: Bearer <access_token>` in the initial handshake headers (or cookies, depending on the client).
 - **Description**: Upgrades the connection to a WebSocket for real-time location streaming. The server uses Redis Pub/Sub behind the scenes to push events across all Node instances to connected clients.
 - **Client Protocol (JSON)**:
