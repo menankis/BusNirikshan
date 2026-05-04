@@ -20,30 +20,30 @@ import os
 BASE_URL = "https://busnirikshanapi.mauliksharma.org"
 WS_URL = "wss://busnirikshanapi.mauliksharma.org/api/locations/livewebsocket"
 
-# EMAIL = "test@test.com"
-# PASSWORD = "Test123@"
+EMAIL = "test@test.com"
+PASSWORD = "Test123@"
 BUS_ID = os.environ.get("TEST_BUS_ID", "dummy_bus_id_1")
 
-# def get_token():
-#     print(f"Logging in as {EMAIL}...")
-#     try:
-#         response = requests.post(f"{BASE_URL}/api/auth/login", json={
-#             "email": EMAIL,
-#             "password": PASSWORD
-#         })
-#         print(response.text, response.status_code)
-#         if response.status_code != 200:
-#             print(f"Failed to login. Status {response.status_code}: {response.text}")
-#             print("Please ensure your server is running and the credentials are valid.")
-#             print("You can override credentials by setting TEST_EMAIL and TEST_PASSWORD env vars.")
-#             sys.exit(1)
+def get_token():
+    print(f"Logging in as {EMAIL}...")
+    try:
+        response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": EMAIL,
+            "password": PASSWORD
+        })
+        print(response.text, response.status_code)
+        if response.status_code != 200:
+            print(f"Failed to login. Status {response.status_code}: {response.text}")
+            print("Please ensure your server is running and the credentials are valid.")
+            print("You can override credentials by setting TEST_EMAIL and TEST_PASSWORD env vars.")
+            sys.exit(1)
             
-#         token = response.json().get("access_token")
-#         print("Login successful. Acquired access token.")
-#         return token
-#     except requests.exceptions.ConnectionError:
-#         print(f"Failed to connect to {BASE_URL}. Is the backend running?")
-#         sys.exit(1)
+        token = response.json().get("access_token")
+        print("Login successful. Acquired access token.")
+        return token
+    except requests.exceptions.ConnectionError:
+        print(f"Failed to connect to {BASE_URL}. Is the backend running?")
+        sys.exit(1)
 
 async def test_websocket(token):
     headers = {
@@ -94,6 +94,7 @@ async def test_websocket(token):
         print(f"WebSocket error: {e}")
 
 if __name__ == "__main__":    
+    token = get_token()
     try:
         asyncio.run(test_websocket(token))
     except KeyboardInterrupt:
