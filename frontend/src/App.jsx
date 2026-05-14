@@ -2,8 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import PassengerDashboard from './pages/passenger/PassengerDashboard';
+import ForgotPasswordPage from './pages/auth/ForgetPasswordPage';
+import PassengerDashboard from './pages/passengers/PassengerDashboard';
 import DriverDashboard from './pages/driver/DriverDashboard';
 import './index.css';
 
