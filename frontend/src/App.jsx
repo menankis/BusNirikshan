@@ -6,6 +6,7 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 import PassengerDashboard from './pages/passenger/PassengerDashboard'
 import DriverDashboard from './pages/driver/DriverDashboard'
 import './index.css'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth()
@@ -50,6 +51,7 @@ export default function App() {
           } />
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
