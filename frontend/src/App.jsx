@@ -1,33 +1,28 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgetPasswordPage';
-import PassengerDashboard from './pages/passengers/PassengerDashboard';
-import DriverDashboard from './pages/driver/DriverDashboard';
-import './index.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import PassengerDashboard from './pages/passenger/PassengerDashboard'
+import DriverDashboard from './pages/driver/DriverDashboard'
+import './index.css'
 
-function ProtectedRoute({ children, allowedRole }) {
-  const { isAuthenticated, user } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (allowedRole && user?.role && user.role !== allowedRole && user.role !== 'admin') {
-    // redirect driver trying to access passenger page and vice versa
-    return <Navigate to={user.role === 'driver' ? '/driver' : '/passenger'} replace />;
-  }
-  return children;
+function ProtectedRoute({ children }) {
+  const { isAuthenticated } = useAuth()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  return children
 }
 
 function GuestRoute({ children }) {
-  const { isAuthenticated, user } = useAuth();
-  if (!isAuthenticated) return children;
-  return <Navigate to={user?.role === 'driver' ? '/driver' : '/passenger'} replace />;
+  const { isAuthenticated } = useAuth()
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />
+  return children
 }
 
-// Smart redirect based on role
-function RoleRedirect() {
-  const { user, isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <Navigate to={user?.role === 'driver' ? '/driver' : '/passenger'} replace />;
+function DashboardRedirect() {
+  const { user } = useAuth()
+  if (user?.role === 'driver') return <Navigate to="/driver" replace />
+  return <Navigate to="/passenger" replace />
 }
 
 export default function App() {
@@ -35,21 +30,28 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Auth */}
-          <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
-          <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
-          <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
-
-          {/* Dashboards */}
-          <Route path="/passenger" element={<ProtectedRoute allowedRole="passenger"><PassengerDashboard /></ProtectedRoute>} />
-          <Route path="/driver" element={<ProtectedRoute allowedRole="driver"><DriverDashboard /></ProtectedRoute>} />
-
-          {/* Smart redirect */}
-          <Route path="/dashboard" element={<RoleRedirect />} />
-          <Route path="/" element={<RoleRedirect />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/login" element={
+            <GuestRoute><LoginPage /></GuestRoute>
+          } />
+          <Route path="/register" element={
+            <GuestRoute><RegisterPage /></GuestRoute>
+          } />
+          <Route path="/forgot-password" element={
+            <ForgotPasswordPage />
+          } />
+          <Route path="/passenger" element={
+            <ProtectedRoute><PassengerDashboard /></ProtectedRoute>
+          } />
+          <Route path="/driver" element={
+            <ProtectedRoute><DriverDashboard /></ProtectedRoute>
+          } />
+          <Route path="/dashboard" element={
+            <ProtectedRoute><DashboardRedirect /></ProtectedRoute>
+          } />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
-  );
+  )
 }

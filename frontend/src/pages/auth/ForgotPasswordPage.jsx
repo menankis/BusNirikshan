@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { authService } from "../../context/authService";
+import { authService } from "../../services/authService";
 import { FormInput } from '../../components/ui/FormInput';
 import styles from './Auth.module.css';
 
@@ -12,7 +12,8 @@ export default function ForgotPasswordPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!email) { setError('Email is required'); return; }
+    if
+     (!email) { setError('Email is required'); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { setError('Enter a valid email'); return; }
     setLoading(true);
     try {
