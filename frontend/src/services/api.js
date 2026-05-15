@@ -39,19 +39,19 @@ export const busesService = {
 }
 
 export const locationService = {
-  updateLocation: (busId, latitude, longitude, heading) =>
-    request('/api/locations', {
+  updateLocation: (lat, lng, speed_kmh, heading_deg) =>
+    request('/api/locations/', {
       method: 'POST',
-      body: JSON.stringify({ busId, latitude, longitude, heading }),
-    }),
-  getActiveBuses: () => request('/api/locations/active'),
+      body: JSON.stringify({ lat, lng, speed_kmh, heading_deg, timestamp: Date.now() }),
+   }),
+  getActiveBuses: () => request('/api/locations/live'),
   getBusLocation: (busId) => request(`/api/locations/${busId}`),
   getBusHistory: (busId, from, to) =>
     request(`/api/locations/${busId}/history?from=${from}&to=${to}`),
 }
 
 export const etaService = {
-  getETA: (busId, stopId) => request(`/api/eta?busId=${busId}&stopId=${stopId}`),
+  getBusETA: (busId, stopId) => request(`/api/buses/${busId}/eta?stopId=${stopId}`),
   getETAForStop: (stopId) => request(`/api/eta/stop/${stopId}`),
 }
 
@@ -61,12 +61,14 @@ export const routesService = {
 }
 
 export const driversService = {
-  getMyShift: () => request('/api/drivers/shift/current'),
-  startShift: (busId, routeId) =>
-    request('/api/drivers/shift/start', {
+  getMyProfile: (driverId) => request(`/api/drivers/${driverId}`),
+  
+  startShift: (driverId, busId) =>
+    request(`/api/drivers/${driverId}/shift/start`, {
       method: 'POST',
-      body: JSON.stringify({ busId, routeId }),
+      body: JSON.stringify({ busId }),
     }),
-  endShift: () => request('/api/drivers/shift/end', { method: 'POST' }),
-  getMyBus: () => request('/api/drivers/bus'),
+
+  endShift: (driverId) =>
+    request(`/api/drivers/${driverId}/shift/end`, { method: 'POST' }),
 }

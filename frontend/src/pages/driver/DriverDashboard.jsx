@@ -96,7 +96,7 @@ export default function DriverDashboard() {
     if (!selectedBus || !selectedRoute) return;
     setShiftLoading(true);
     try {
-      const data = await driversService.startShift(selectedBus, selectedRoute);
+      const data = await driversService.startShift(user.userId,selectedBus);
       setShift(data.shift || data);
       setUpdateLog([]);
       setTotalUpdates(0);
@@ -111,7 +111,7 @@ export default function DriverDashboard() {
   async function endShift() {
     setShiftLoading(true);
     try {
-      await driversService.endShift();
+      await driversService.endShift(user.userId);
       setShift(null);
       clearInterval(intervalRef.current);
       clearInterval(countdownRef.current);
