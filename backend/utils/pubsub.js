@@ -4,9 +4,13 @@ const Redis = require("ioredis");
 // Redis Pub/Sub Clients
 //
 // Redis requires SEPARATE connections for pub and sub roles.
+//
+// FIX: Read REDIS_URL lazily inside each function instead of at module load
+// time. This ensures dotenv has already populated process.env before we try
+// to read the value. Reading it at the top level caused PUBSUB_URL to always
+// be undefined, which broke the singleton check and created a new Redis
+// connection on every getSubscriber() / getPublisher() call.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const PUBSUB_URL = process.env.REDIS_URL;
 
 const REDIS_OPTS = {
     maxRetriesPerRequest: null,   // subscriber must retry indefinitely
@@ -19,11 +23,12 @@ let publisher = null;
 
 function getPublisher() {
     if (!publisher) {
-        if (!PUBSUB_URL) {
+        const url = process.env.REDIS_URL;   // read lazily — dotenv is loaded by now
+        if (!url) {
             console.warn("[pubsub] No Redis URL configured — publishing is disabled.");
             return null;
         }
-        publisher = new Redis(PUBSUB_URL, { ...REDIS_OPTS, maxRetriesPerRequest: 2 });
+        publisher = new Redis(url, { ...REDIS_OPTS, maxRetriesPerRequest: 2 });
         publisher.on("error", (err) =>
             console.error("[pubsub:publisher] Redis error:", err.message)
         );
@@ -39,11 +44,12 @@ let subscriber = null;
 
 function getSubscriber() {
     if (!subscriber) {
-        if (!PUBSUB_URL) {
+        const url = process.env.REDIS_URL;   // read lazily — dotenv is loaded by now
+        if (!url) {
             console.warn("[pubsub] No Redis URL configured — subscribing is disabled.");
             return null;
         }
-        subscriber = new Redis(PUBSUB_URL, REDIS_OPTS);
+        subscriber = new Redis(url, REDIS_OPTS);
         subscriber.on("error", (err) =>
             console.error("[pubsub:subscriber] Redis error:", err.message)
         );

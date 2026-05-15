@@ -14,7 +14,7 @@ function getClient() {
             return null;
         }
         client = new Redis(url, {
-            maxRetriesPerRequest: 2,
+            maxRetriesPerRequest: 0,
             enableReadyCheck: false,   // required for Upstash serverless
             lazyConnect: false,
         });
@@ -55,35 +55,43 @@ function stableQueryString(queryObj) {
 //
 // If Redis is unavailable, falls through to `fetchFn()` transparently.
 // ─────────────────────────────────────────────────────────────────────────────
-async function getOrSet(key, ttlSeconds, fetchFn) {
-    const redis = getClient();
-
-    if (redis) {
-        try {
-            const cached = await redis.get(key);
-            if (cached !== null) {
-                return JSON.parse(cached);
-            }
-        } catch (err) {
-            console.error(`[cache] GET error for key "${key}":`, err.message);
-        }
-    }
-
-    // Cache miss (or Redis unavailable) — fetch from DB
-    const data = await fetchFn();
-
-    if (redis && data !== undefined && data !== null) {
-        try {
-            await redis.set(key, JSON.stringify(data), "EX", ttlSeconds);
-        } catch (err) {
-            console.error(`[cache] SET error for key "${key}":`, err.message);
-        }
-    }
-
-    return data;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
+async function getOrSet(key, ttlSeconds, fetchFn) {
+    // Redis bypassed for now — go straight to MongoDB
+    return await fetchFn();
+}
+
+
+// async function getOrSet(key, ttlSeconds, fetchFn) {
+//     const redis = getClient();
+
+//     if (redis) {
+//         try {
+//             const cached = await redis.get(key);
+//             if (cached !== null) {
+//                 return JSON.parse(cached);
+//             }
+//         } catch (err) {
+//             console.error(`[cache] GET error for key "${key}":`, err.message);
+//         }
+//     }
+
+//     // Cache miss (or Redis unavailable) — fetch from DB
+//     const data = await fetchFn();
+
+//     if (redis && data !== undefined && data !== null) {
+//         try {
+//             await redis.set(key, JSON.stringify(data), "EX", ttlSeconds);
+//         } catch (err) {
+//             console.error(`[cache] SET error for key "${key}":`, err.message);
+//         }
+//     }
+
+//     return data;
+// }
+
+// ────────────────────────────────────────────────────────────────────────────
 // invalidate(...patterns)
 //
 // Deletes all Redis keys matching any of the given glob patterns.
