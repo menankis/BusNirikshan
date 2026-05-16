@@ -6,14 +6,11 @@ const { getDistanceKm } = require("../utils/geo");
 
 const router = express.Router();
 
-const DEFAULT_SPEED_KMH = 40; // fallback when bus has no speed data
+const DEFAULT_SPEED_KMH = 40;
 
 // ── GET /api/eta ──────────────────────────────────────────────────────────────
 // Batch ETA for multiple buses to a single stop.
 // Query: ?stopId=X&busIds=A,B,C
-//
-// This is the passenger-facing "which bus arrives first?" endpoint.
-// It reuses the same Haversine util from buses.js but runs it for N buses at once.
 router.get("/", async (req, res) => {
   try {
     const { stopId, busIds } = req.query;
@@ -26,16 +23,12 @@ router.get("/", async (req, res) => {
       return res.status(400).json({ message: "busIds query param is required (comma-separated)" });
     }
 
-    // parse "A,B,C" → ["A","B","C"] and validate each
     const busIdList = busIds.split(",").map((id) => id.trim());
     const invalidIds = busIdList.filter((id) => !mongoose.isValidObjectId(id));
     if (invalidIds.length > 0) {
-      return res.status(400).json({
-        message: `Invalid busId(s): ${invalidIds.join(", ")}`,
-      });
+      return res.status(400).json({ message: `Invalid busId(s): ${invalidIds.join(", ")}` });
     }
 
-    // fetch the stop and all buses in parallel
     const [stop, buses] = await Promise.all([
       Stop.findById(stopId, "name location").lean(),
       Bus.find({ _id: { $in: busIdList } }, "registrationNumber routeName lastKnownLocation isActive").lean(),
@@ -48,12 +41,10 @@ router.get("/", async (req, res) => {
 
     const [stopLng, stopLat] = stop.location.coordinates;
 
-    // build ETA for each requested bus
     const results = busIdList.map((id) => {
       const bus = buses.find((b) => b._id.toString() === id);
 
       if (!bus) return { busId: id, status: "not_found" };
-
       if (!bus.isActive) return { busId: id, registrationNumber: bus.registrationNumber, status: "inactive" };
 
       const coords = bus.lastKnownLocation?.coordinates;
@@ -79,7 +70,6 @@ router.get("/", async (req, res) => {
       };
     });
 
-    // sort valid results by ETA so the closest bus is first
     const sorted = [
       ...results.filter((r) => r.status === "ok").sort((a, b) => a.eta_minutes - b.eta_minutes),
       ...results.filter((r) => r.status !== "ok"),
@@ -98,9 +88,7 @@ router.get("/", async (req, res) => {
 
 // ── GET /api/eta/stop/:stopId ─────────────────────────────────────────────────
 // ETA for ALL active buses within a radius of a given stop.
-// Query: ?radius_km=5  (default 10 km)
-//
-// Useful for the passenger app — "show me every bus heading toward this stop"
+// FIX: switched from $nearSphere to $geoWithin/$centerSphere (no index needed)
 router.get("/stop/:stopId", async (req, res) => {
   try {
     const { stopId } = req.params;
@@ -109,7 +97,6 @@ router.get("/stop/:stopId", async (req, res) => {
     if (!mongoose.isValidObjectId(stopId)) {
       return res.status(400).json({ message: "Invalid stopId" });
     }
-
     if (radius_km <= 0 || radius_km > 100) {
       return res.status(400).json({ message: "radius_km must be between 0 and 100" });
     }
@@ -122,14 +109,15 @@ router.get("/stop/:stopId", async (req, res) => {
 
     const [stopLng, stopLat] = stop.location.coordinates;
     const radiusMeters = radius_km * 1000;
+    // convert meters to radians for $centerSphere (Earth radius = 6378100m)
+    const radiusRadians = radiusMeters / 6378100;
 
-    // use MongoDB's $nearSphere index to efficiently find nearby active buses
+    // use $geoWithin instead of $nearSphere — works without a 2dsphere index
     const nearbyBuses = await Bus.find({
       isActive: true,
       "lastKnownLocation.coordinates": {
-        $nearSphere: {
-          $geometry: { type: "Point", coordinates: [stopLng, stopLat] },
-          $maxDistance: radiusMeters,
+        $geoWithin: {
+          $centerSphere: [[stopLng, stopLat], radiusRadians],
         },
       },
     })
@@ -144,7 +132,6 @@ router.get("/stop/:stopId", async (req, res) => {
       });
     }
 
-    // calculate ETA for each nearby bus
     const results = nearbyBuses.map((bus) => {
       const [busLng, busLat] = bus.lastKnownLocation.coordinates;
       const distanceKm = getDistanceKm(busLat, busLng, stopLat, stopLng);
@@ -163,7 +150,6 @@ router.get("/stop/:stopId", async (req, res) => {
       };
     });
 
-    // closest bus first
     results.sort((a, b) => a.eta_minutes - b.eta_minutes);
 
     return res.status(200).json({

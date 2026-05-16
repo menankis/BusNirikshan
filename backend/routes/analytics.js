@@ -7,17 +7,12 @@ const requireRole = require("../middleware/requireRole");
 
 const router = express.Router();
 
-// helper — validates epoch timestamp strings and returns a Date
 function parseEpoch(value, fieldName) {
   const ms = parseInt(value);
   if (isNaN(ms)) throw new Error(`'${fieldName}' must be a valid epoch timestamp in ms`);
   return new Date(ms);
 }
 
-// ── GET /api/analytics/bus/:busId/trail ───────────────────────────────────────
-// Returns the GPS trail (breadcrumb path) of a bus over a time window.
-// Useful for replaying a bus journey on a map.
-// Query: ?from=<epoch_ms>&to=<epoch_ms>
 router.get("/bus/:busId/trail", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -66,9 +61,6 @@ router.get("/bus/:busId/trail", async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/bus/:busId/speed ───────────────────────────────────────
-// Returns average, max, and min speed of a bus over a time window.
-// Query: ?from=<epoch_ms>&to=<epoch_ms>&interval=hour  (interval: hour | day)
 router.get("/bus/:busId/speed", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -95,7 +87,6 @@ router.get("/bus/:busId/speed", async (req, res) => {
     const bus = await Bus.findById(busId, "registrationNumber").lean();
     if (!bus) return res.status(404).json({ message: "Bus not found" });
 
-    // group by hour or day using MongoDB date operators
     const dateGroupExpr = interval === "hour"
       ? { year: { $year: "$timestamp" }, month: { $month: "$timestamp" }, day: { $dayOfMonth: "$timestamp" }, hour: { $hour: "$timestamp" } }
       : { year: { $year: "$timestamp" }, month: { $month: "$timestamp" }, day: { $dayOfMonth: "$timestamp" } };
@@ -105,7 +96,7 @@ router.get("/bus/:busId/speed", async (req, res) => {
         $match: {
           busId: new mongoose.Types.ObjectId(busId),
           timestamp: { $gte: fromDate, $lte: toDate },
-          speed_kmh: { $gt: 0 }, // exclude stopped/no-data points
+          speed_kmh: { $gt: 0 },
         },
       },
       {
@@ -140,10 +131,8 @@ router.get("/bus/:busId/speed", async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/stops/:stopId/traffic ─────────────────────────────────
-// How many buses passed within 200m of a stop over a time window.
-// A simple proxy for passenger demand / stop popularity.
-// Query: ?from=<epoch_ms>&to=<epoch_ms>
+// FIX: switched from $nearSphere to $geoWithin/$centerSphere
+// $nearSphere is not allowed in countDocuments/distinct context
 router.get("/stops/:stopId/traffic", async (req, res) => {
   try {
     const { stopId } = req.params;
@@ -171,26 +160,23 @@ router.get("/stops/:stopId/traffic", async (req, res) => {
     }
 
     const [lng, lat] = stop.location.coordinates;
-    const PROXIMITY_METERS = 200; // consider bus "at the stop" if within 200m
+    const PROXIMITY_METERS = 200;
+    const radiusRadians = PROXIMITY_METERS / 6378100;
 
-    // count how many location pings happened near this stop in the time window
     const count = await BusLocation.countDocuments({
       timestamp: { $gte: fromDate, $lte: toDate },
       location: {
-        $nearSphere: {
-          $geometry: { type: "Point", coordinates: [lng, lat] },
-          $maxDistance: PROXIMITY_METERS,
+        $geoWithin: {
+          $centerSphere: [[lng, lat], radiusRadians],
         },
       },
     });
 
-    // break it down by unique buses
     const uniqueBuses = await BusLocation.distinct("busId", {
       timestamp: { $gte: fromDate, $lte: toDate },
       location: {
-        $nearSphere: {
-          $geometry: { type: "Point", coordinates: [lng, lat] },
-          $maxDistance: PROXIMITY_METERS,
+        $geoWithin: {
+          $centerSphere: [[lng, lat], radiusRadians],
         },
       },
     });
@@ -211,9 +197,6 @@ router.get("/stops/:stopId/traffic", async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/system/active-buses ────────────────────────────────────
-// Admin only. System-wide snapshot — how many buses are currently active
-// and a breakdown by RTC operator.
 router.get("/system/active-buses", requireRole("admin"), async (req, res) => {
   try {
     const breakdown = await Bus.aggregate([
@@ -226,7 +209,6 @@ router.get("/system/active-buses", requireRole("admin"), async (req, res) => {
       { $sort: { "_id.rtc": 1 } },
     ]);
 
-    // reshape into a friendlier structure
     const byRtc = {};
     let totalActive = 0;
     let totalInactive = 0;
