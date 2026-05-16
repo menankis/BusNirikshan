@@ -336,4 +336,49 @@ router.post("/:driverId/shift/end", async (req, res) => {
   }
 });
 
+// ── GET /api/drivers/:driverId/shifts ─────────────────────────────────────────
+// Returns shift history for a driver with pagination
+// Query: ?page=1&limit=10
+router.get("/:driverId/shifts", async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    if (!mongoose.isValidObjectId(driverId)) {
+      return res.status(400).json({ message: "Invalid driverId" });
+    }
+
+    const { parsePagination } = require("../utils/pagination");
+    const { page, limit, skip } = parsePagination(req.query);
+
+    const driver = await Driver.findById(driverId, "userId rtc").lean();
+    if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+    const [total, shifts] = await Promise.all([
+      Shift.countDocuments({ driverId }),
+      Shift.find({ driverId })
+        .sort({ startedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    return res.status(200).json({
+      message: "Shift history fetched successfully",
+      driver: { id: driverId, rtc: driver.rtc },
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1
+      },
+      shifts
+    });
+  } catch (err) {
+    console.error("[GET /drivers/:driverId/shifts]", err);
+    return res.status(500).json({ message: "Failed to fetch shift history" });
+  }
+});
+
 module.exports = router;
