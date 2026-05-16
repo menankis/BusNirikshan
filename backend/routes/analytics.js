@@ -13,6 +13,7 @@ function parseEpoch(value, fieldName) {
   return new Date(ms);
 }
 
+// ── GET /api/analytics/bus/:busId/trail ───────────────────────────────────────
 router.get("/bus/:busId/trail", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -61,6 +62,8 @@ router.get("/bus/:busId/trail", async (req, res) => {
   }
 });
 
+// ── GET /api/analytics/bus/:busId/speed ───────────────────────────────────────
+// Supports ?from=<epoch>&to=<epoch> OR ?date=YYYY-MM-DD (full day range)
 router.get("/bus/:busId/speed", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -69,8 +72,8 @@ router.get("/bus/:busId/speed", async (req, res) => {
     if (!mongoose.isValidObjectId(busId)) {
       return res.status(400).json({ message: "Invalid busId" });
     }
-    if (!from || !to) {
-      return res.status(400).json({ message: "Both 'from' and 'to' epoch timestamps are required" });
+    if (!from && !to && !req.query.date) {
+      return res.status(400).json({ message: "Either 'date' (YYYY-MM-DD) or both 'from' and 'to' epoch timestamps are required" });
     }
     if (!["hour", "day"].includes(interval)) {
       return res.status(400).json({ message: "interval must be 'hour' or 'day'" });
@@ -78,8 +81,15 @@ router.get("/bus/:busId/speed", async (req, res) => {
 
     let fromDate, toDate;
     try {
-      fromDate = parseEpoch(from, "from");
-      toDate   = parseEpoch(to, "to");
+      if (req.query.date && !from && !to) {
+        const d = new Date(req.query.date);
+        if (isNaN(d.getTime())) throw new Error("Invalid date format. Use YYYY-MM-DD");
+        fromDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+        toDate   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+      } else {
+        fromDate = parseEpoch(from, "from");
+        toDate   = parseEpoch(to, "to");
+      }
     } catch (e) {
       return res.status(400).json({ message: e.message });
     }
@@ -131,8 +141,9 @@ router.get("/bus/:busId/speed", async (req, res) => {
   }
 });
 
+// ── GET /api/analytics/stops/:stopId/traffic ─────────────────────────────────
+// Supports ?from=<epoch>&to=<epoch> OR ?date=YYYY-MM-DD (full day range)
 // FIX: switched from $nearSphere to $geoWithin/$centerSphere
-// $nearSphere is not allowed in countDocuments/distinct context
 router.get("/stops/:stopId/traffic", async (req, res) => {
   try {
     const { stopId } = req.params;
@@ -141,14 +152,21 @@ router.get("/stops/:stopId/traffic", async (req, res) => {
     if (!mongoose.isValidObjectId(stopId)) {
       return res.status(400).json({ message: "Invalid stopId" });
     }
-    if (!from || !to) {
-      return res.status(400).json({ message: "Both 'from' and 'to' epoch timestamps are required" });
+    if (!from && !to && !req.query.date) {
+      return res.status(400).json({ message: "Either 'date' (YYYY-MM-DD) or both 'from' and 'to' epoch timestamps are required" });
     }
 
     let fromDate, toDate;
     try {
-      fromDate = parseEpoch(from, "from");
-      toDate   = parseEpoch(to, "to");
+      if (req.query.date && !from && !to) {
+        const d = new Date(req.query.date);
+        if (isNaN(d.getTime())) throw new Error("Invalid date format. Use YYYY-MM-DD");
+        fromDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+        toDate   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+      } else {
+        fromDate = parseEpoch(from, "from");
+        toDate   = parseEpoch(to, "to");
+      }
     } catch (e) {
       return res.status(400).json({ message: e.message });
     }
@@ -197,6 +215,7 @@ router.get("/stops/:stopId/traffic", async (req, res) => {
   }
 });
 
+// ── GET /api/analytics/system/active-buses ────────────────────────────────────
 router.get("/system/active-buses", requireRole("admin"), async (req, res) => {
   try {
     const breakdown = await Bus.aggregate([
@@ -241,8 +260,8 @@ router.get("/system/active-buses", requireRole("admin"), async (req, res) => {
 });
 
 // ── GET /api/analytics/bus/:busId/summary ─────────────────────────────────────
-// Returns a quick summary for a bus — total shifts, total distance, avg speed
-// Query: ?from=<epoch_ms>&to=<epoch_ms>
+// Returns a quick summary — total pings, avg speed, max speed
+// Supports ?from=<epoch>&to=<epoch> OR ?date=YYYY-MM-DD
 router.get("/bus/:busId/summary", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -251,14 +270,21 @@ router.get("/bus/:busId/summary", async (req, res) => {
     if (!mongoose.isValidObjectId(busId)) {
       return res.status(400).json({ message: "Invalid busId" });
     }
-    if (!from || !to) {
-      return res.status(400).json({ message: "Both 'from' and 'to' epoch timestamps are required" });
+    if (!from && !to && !req.query.date) {
+      return res.status(400).json({ message: "Either 'date' (YYYY-MM-DD) or both 'from' and 'to' epoch timestamps are required" });
     }
 
     let fromDate, toDate;
     try {
-      fromDate = parseEpoch(from, "from");
-      toDate   = parseEpoch(to, "to");
+      if (req.query.date && !from && !to) {
+        const d = new Date(req.query.date);
+        if (isNaN(d.getTime())) throw new Error("Invalid date format. Use YYYY-MM-DD");
+        fromDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+        toDate   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+      } else {
+        fromDate = parseEpoch(from, "from");
+        toDate   = parseEpoch(to, "to");
+      }
     } catch (e) {
       return res.status(400).json({ message: e.message });
     }

@@ -66,6 +66,19 @@ mongoose.connect(MONGODB_URI)
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       startRedisSubscriber();
+
+      // register this instance in Redis so /api/admin/system/instances can list it
+  const { getPublisher } = require("./utils/pubsub");
+  const pub = getPublisher();
+  if (pub) {
+    const instanceId = `instance:${process.env.HOSTNAME || "local"}-${Date.now()}`;
+    pub.set(instanceId, JSON.stringify({
+      instanceId,
+      startedAt: new Date().toISOString(),
+      port: PORT,
+    }), "EX", 3600);
+    app.locals.redisClient = pub;
+  }
     });
   })
   .catch((err) => {

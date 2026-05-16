@@ -35,6 +35,9 @@ router.post("/subscribe", async (req, res) => {
     // check stop exists
     const stop = await Stop.findById(stopId, "name").lean();
     if (!stop) return res.status(404).json({ message: "Stop not found" });
+    const Route = require("../models/route");
+    const route = await Route.findById(routeId, "name").lean();
+    if (!route) return res.status(404).json({ message: "Route not found" });
 
     // upsert — if subscription already exists, update the threshold
     const subscription = await Notification.findOneAndUpdate(
