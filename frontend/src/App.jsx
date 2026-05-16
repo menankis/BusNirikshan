@@ -7,6 +7,7 @@ import PassengerDashboard from './pages/passenger/PassengerDashboard'
 import DriverDashboard from './pages/driver/DriverDashboard'
 import './index.css'
 import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import AdminDashboard from './pages/admin/AdminDashboard'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth()
@@ -48,6 +49,9 @@ export default function App() {
           } />
           <Route path="/dashboard" element={
             <ProtectedRoute><DashboardRedirect /></ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <ProtectedRoute><AdminDashboard /></ProtectedRoute>
           } />
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
