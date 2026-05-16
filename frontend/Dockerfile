@@ -4,9 +4,9 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy manifests first for better layer caching
-COPY package.json package-lock.json ./
+COPY package.json ./
 
-RUN npm ci
+RUN npm install
 
 COPY . .
 

@@ -1,4 +1,5 @@
 const { getSubscriber, CHANNEL_PATTERN } = require("../utils/pubsub");
+const mongoose = require("mongoose");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Subscription registry
@@ -139,7 +140,7 @@ function locationWsHandler(ws, _req) {
 
         // Sanitise: allow only non-empty strings, max 50 buses per client
         const valid = busIds
-            .filter(id => typeof id === "string" && id.trim().length > 0)
+            .filter(id => typeof id === "string" && id.trim().length > 0 && mongoose.isValidObjectId(id))
             .slice(0, 50);
 
         if (type === "subscribe") {

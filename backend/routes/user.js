@@ -63,8 +63,8 @@ router.patch("/:userId", async (req, res) => {
 
         const updates = {};
         // Privileged fields that only admins may change
-        const adminOnlyFields = ["role", "isActive"];
-        const allowedFields = ["name", "email", "role", "rtc"];
+        const adminOnlyFields = ["role", "email"];
+        const allowedFields = ["name", "rtc", "isActive"];
         
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) {
