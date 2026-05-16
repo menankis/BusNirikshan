@@ -22,6 +22,7 @@ const locationSseRoutes = require("./routes/locationSse");
 
 const authorise       = require("./middleware/authorise");
 const { userApiLimiter } = require("./middleware/rateLimiters");
+const notificationRoutes = require("./routes/notifications");
 
 const app = express();
 expressWs(app);
@@ -47,6 +48,8 @@ app.use("/api/analytics", authorise, userApiLimiter, analyticsRoutes);
 app.use("/api/admin",     authorise, adminRoutes);               // no rate limiter for admin ops
 
 app.use("/api/locations", authorise, userApiLimiter, locationSseRoutes);
+
+app.use("/api/notifications", authorise, userApiLimiter, notificationRoutes);
 
 app.ws("/api/locations/livewebsocket", locationWsHandler);
 
