@@ -58,38 +58,32 @@ function stableQueryString(queryObj) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 async function getOrSet(key, ttlSeconds, fetchFn) {
-    // Redis bypassed for now — go straight to MongoDB
-    return await fetchFn();
+    const redis = getClient();
+
+    if (redis) {
+        try {
+            const cached = await redis.get(key);
+            if (cached !== null) {
+                return JSON.parse(cached);
+            }
+        } catch (err) {
+            console.error(`[cache] GET error for key "${key}":`, err.message);
+        }
+    }
+
+    // Cache miss (or Redis unavailable) — fetch from DB
+    const data = await fetchFn();
+
+    if (redis && data !== undefined && data !== null) {
+        try {
+            await redis.set(key, JSON.stringify(data), "EX", ttlSeconds);
+        } catch (err) {
+            console.error(`[cache] SET error for key "${key}":`, err.message);
+        }
+    }
+
+    return data;
 }
-
-
-// async function getOrSet(key, ttlSeconds, fetchFn) {
-//     const redis = getClient();
-
-//     if (redis) {
-//         try {
-//             const cached = await redis.get(key);
-//             if (cached !== null) {
-//                 return JSON.parse(cached);
-//             }
-//         } catch (err) {
-//             console.error(`[cache] GET error for key "${key}":`, err.message);
-//         }
-//     }
-
-//     // Cache miss (or Redis unavailable) — fetch from DB
-//     const data = await fetchFn();
-
-//     if (redis && data !== undefined && data !== null) {
-//         try {
-//             await redis.set(key, JSON.stringify(data), "EX", ttlSeconds);
-//         } catch (err) {
-//             console.error(`[cache] SET error for key "${key}":`, err.message);
-//         }
-//     }
-
-//     return data;
-// }
 
 // ────────────────────────────────────────────────────────────────────────────
 // invalidate(...patterns)
@@ -107,13 +101,11 @@ async function invalidate(...patterns) {
 
     for (const pattern of patterns) {
         try {
-            // If the pattern contains no wildcard, delete directly for speed
             if (!pattern.includes("*")) {
                 await redis.del(pattern);
                 continue;
             }
 
-            // Scan-and-delete in batches of 100
             let cursor = "0";
             do {
                 const [nextCursor, keys] = await redis.scan(
@@ -122,7 +114,6 @@ async function invalidate(...patterns) {
                     "COUNT", 100
                 );
                 cursor = nextCursor;
-
                 if (keys.length > 0) {
                     await redis.del(...keys);
                 }
