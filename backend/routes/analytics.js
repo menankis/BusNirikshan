@@ -240,4 +240,71 @@ router.get("/system/active-buses", requireRole("admin"), async (req, res) => {
   }
 });
 
+// ── GET /api/analytics/bus/:busId/summary ─────────────────────────────────────
+// Returns a quick summary for a bus — total shifts, total distance, avg speed
+// Query: ?from=<epoch_ms>&to=<epoch_ms>
+router.get("/bus/:busId/summary", async (req, res) => {
+  try {
+    const { busId } = req.params;
+    const { from, to } = req.query;
+
+    if (!mongoose.isValidObjectId(busId)) {
+      return res.status(400).json({ message: "Invalid busId" });
+    }
+    if (!from || !to) {
+      return res.status(400).json({ message: "Both 'from' and 'to' epoch timestamps are required" });
+    }
+
+    let fromDate, toDate;
+    try {
+      fromDate = parseEpoch(from, "from");
+      toDate   = parseEpoch(to, "to");
+    } catch (e) {
+      return res.status(400).json({ message: e.message });
+    }
+
+    const bus = await Bus.findById(busId, "registrationNumber routeName rtc").lean();
+    if (!bus) return res.status(404).json({ message: "Bus not found" });
+
+    const stats = await BusLocation.aggregate([
+      {
+        $match: {
+          busId: new mongoose.Types.ObjectId(busId),
+          timestamp: { $gte: fromDate, $lte: toDate },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalPings: { $sum: 1 },
+          avgSpeed: { $avg: "$speed_kmh" },
+          maxSpeed: { $max: "$speed_kmh" },
+        },
+      },
+    ]);
+
+    const result = stats[0] || { totalPings: 0, avgSpeed: 0, maxSpeed: 0 };
+
+    return res.status(200).json({
+      message: "Bus summary fetched successfully",
+      bus: {
+        id: busId,
+        registrationNumber: bus.registrationNumber,
+        routeName: bus.routeName,
+        rtc: bus.rtc,
+      },
+      from: fromDate,
+      to: toDate,
+      summary: {
+        totalPings: result.totalPings,
+        avgSpeed_kmh: result.avgSpeed ? parseFloat(result.avgSpeed.toFixed(1)) : 0,
+        maxSpeed_kmh: result.maxSpeed ? parseFloat(result.maxSpeed.toFixed(1)) : 0,
+      },
+    });
+  } catch (err) {
+    console.error("[GET /analytics/bus/:busId/summary]", err);
+    return res.status(500).json({ message: "Failed to fetch bus summary" });
+  }
+});
+
 module.exports = router;
