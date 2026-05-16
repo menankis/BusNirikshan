@@ -90,6 +90,8 @@ router.get("/:driverId", async (req, res) => {
 
 // ── POST /api/drivers ─────────────────────────────────────────────────────────
 // Admin only. Links an existing User to a Driver profile.
+// ── POST /api/drivers ─────────────────────────────────────────────────────────
+// Admin only. Links an existing User to a Driver profile.
 router.post("/", requireRole("admin"), async (req, res) => {
   try {
     const { userId, rtc, licenseNumber } = req.body;
@@ -100,6 +102,14 @@ router.post("/", requireRole("admin"), async (req, res) => {
 
     if (!mongoose.isValidObjectId(userId)) {
       return res.status(400).json({ message: "Invalid userId" });
+    }
+
+    // license number format validation — must be like GJ01-20240001
+    const licenseRegex = /^[A-Z]{2}\d{2}-\d{4,8}$/;
+    if (!licenseRegex.test(licenseNumber)) {
+      return res.status(400).json({
+        message: "Invalid license number format. Expected format: GJ01-20240001"
+      });
     }
 
     // make sure this user isn't already a driver and license is unique
