@@ -185,4 +185,45 @@ router.get("/", async (req, res) => {
   }
 });
 
+// ── PATCH /api/notifications/subscribe ───────────────────────────────────────
+// Update the threshold minutes for an existing subscription
+// Body: { stopId, routeId, thresholdMinutes }
+router.patch("/subscribe", async (req, res) => {
+  try {
+    const { stopId, routeId, thresholdMinutes } = req.body;
+    const userId = req.user.userId;
+
+    if (!stopId || !routeId || !thresholdMinutes) {
+      return res.status(400).json({ message: "stopId, routeId and thresholdMinutes are required" });
+    }
+    if (!mongoose.isValidObjectId(stopId)) {
+      return res.status(400).json({ message: "Invalid stopId" });
+    }
+    if (!mongoose.isValidObjectId(routeId)) {
+      return res.status(400).json({ message: "Invalid routeId" });
+    }
+    if (thresholdMinutes < 1 || thresholdMinutes > 60) {
+      return res.status(400).json({ message: "thresholdMinutes must be between 1 and 60" });
+    }
+
+    const updated = await Notification.findOneAndUpdate(
+      { userId, stopId, routeId },
+      { $set: { thresholdMinutes } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Subscription not found. Subscribe first." });
+    }
+
+    return res.status(200).json({
+      message: "Threshold updated successfully",
+      subscription: updated,
+    });
+  } catch (err) {
+    console.error("[PATCH /notifications/subscribe]", err);
+    return res.status(500).json({ message: "Failed to update threshold" });
+  }
+});
+
 module.exports = router;

@@ -333,4 +333,79 @@ router.get("/bus/:busId/summary", async (req, res) => {
   }
 });
 
+// ── GET /api/analytics/driver/:driverId/stats ─────────────────────────────────
+// Driver performance stats — total shifts, total hours, avg shift duration
+// Goes beyond the original spec — added for deeper operational insights
+router.get("/driver/:driverId/stats", async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    if (!mongoose.isValidObjectId(driverId)) {
+      return res.status(400).json({ message: "Invalid driverId" });
+    }
+
+    const Shift = require("../models/shift");
+    const Driver = require("../models/driver");
+
+    const driver = await Driver.findById(driverId, "rtc licenseNumber userId")
+      .populate("userId", "name email")
+      .lean();
+
+    if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+    const stats = await Shift.aggregate([
+      {
+        $match: {
+          driverId: new mongoose.Types.ObjectId(driverId),
+          endedAt: { $ne: null }, // only completed shifts
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalShifts: { $sum: 1 },
+          totalMinutes: { $sum: "$durationMin" },
+          avgDurationMin: { $avg: "$durationMin" },
+          maxDurationMin: { $max: "$durationMin" },
+          minDurationMin: { $min: "$durationMin" },
+          totalPings: { $sum: "$totalPointsRecorded" },
+        },
+      },
+    ]);
+
+    const result = stats[0] || {
+      totalShifts: 0,
+      totalMinutes: 0,
+      avgDurationMin: 0,
+      maxDurationMin: 0,
+      minDurationMin: 0,
+      totalPings: 0,
+    };
+
+    return res.status(200).json({
+      message: "Driver stats fetched successfully",
+      driver: {
+        id: driverId,
+        name: driver.userId?.name,
+        email: driver.userId?.email,
+        rtc: driver.rtc,
+        licenseNumber: driver.licenseNumber,
+      },
+      stats: {
+        totalShifts: result.totalShifts,
+        totalHours: parseFloat((result.totalMinutes / 60).toFixed(1)),
+        avgShiftDuration_min: result.avgDurationMin
+          ? parseFloat(result.avgDurationMin.toFixed(1))
+          : 0,
+        maxShiftDuration_min: result.maxDurationMin || 0,
+        minShiftDuration_min: result.minDurationMin || 0,
+        totalGpsPings: result.totalPings,
+      },
+    });
+  } catch (err) {
+    console.error("[GET /analytics/driver/:driverId/stats]", err);
+    return res.status(500).json({ message: "Failed to fetch driver stats" });
+  }
+});
+
 module.exports = router;

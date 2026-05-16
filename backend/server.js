@@ -21,7 +21,7 @@ const adminRoutes       = require("./routes/admin");
 const locationSseRoutes = require("./routes/locationSse");
 
 const authorise       = require("./middleware/authorise");
-const { userApiLimiter } = require("./middleware/rateLimiters");
+const { userApiLimiter, notificationLimiter } = require("./middleware/rateLimiters");
 const notificationRoutes = require("./routes/notifications");
 
 const app = express();
@@ -49,8 +49,7 @@ app.use("/api/admin",     authorise, adminRoutes);               // no rate limi
 
 app.use("/api/locations", authorise, userApiLimiter, locationSseRoutes);
 
-app.use("/api/notifications", authorise, userApiLimiter, notificationRoutes);
-
+app.use("/api/notifications", authorise, notificationLimiter, notificationRoutes);
 app.ws("/api/locations/livewebsocket", locationWsHandler);
 
 // ── Health check ──────────────────────────────────────────────────────────────

@@ -114,4 +114,22 @@ const refreshLimiter = rateLimit({
     message: { message: "Too many token refresh requests. Please try again later." }
 });
 
-module.exports = { userApiLimiter, accountLimiter, forgotPasswordLimiter, otpLimiter, refreshLimiter };
+// ─────────────────────────────────────────────────────────────────────────────
+// notificationLimiter
+//
+// Guards POST/PATCH/DELETE /api/notifications/subscribe
+// Keyed on userId — prevents a single account from spamming subscriptions.
+// Stricter than the general API limiter since subscription changes are
+// infrequent by nature — a passenger rarely subscribes/unsubscribes more
+// than a few times per session.
+// ─────────────────────────────────────────────────────────────────────────────
+const notificationLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    keyGenerator: (req) => `notifications:${req.user.userId}`,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many subscription changes. Please try again later." }
+});
+
+module.exports = { userApiLimiter, accountLimiter, forgotPasswordLimiter, otpLimiter, refreshLimiter, notificationLimiter };
