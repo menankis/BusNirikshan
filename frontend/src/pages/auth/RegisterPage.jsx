@@ -19,7 +19,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
 
   // Step 1 form state
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'passenger', rtc: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', rtc: '' });
   const [errors, setErrors] = useState({});
   const [showStrength, setShowStrength] = useState(false);
 
@@ -239,7 +239,7 @@ export default function RegisterPage() {
             <div className={styles.roleRow}>
               <label className={styles.roleLabel}>I am a</label>
               <div className={styles.rolePills}>
-                {['passenger', 'driver'].map(r => (
+                {['user', 'driver'].map(r => (
                   <button
                     key={r}
                     type="button"
