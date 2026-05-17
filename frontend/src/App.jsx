@@ -1,67 +1,67 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
+
+/* Pages */
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
-import OtpVerifyPage from './pages/auth/OtpVerifyPage'
+
+/* Dashboards */
 import PassengerDashboard from './pages/passenger/PassengerDashboard'
-import DriverDashboard from './pages/driver/DriverDashboard'
-import './index.css'
-import ResetPasswordPage from './pages/auth/ResetPasswordPage'
-import AdminDashboard from './pages/admin/AdminDashboard'
+//import DriverDashboard from './pages/dashboard/DriverDashboard'
 
-function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  return children
-}
+/* Context */
+import { AuthProvider } from './context/AuthContext'
 
-function GuestRoute({ children }) {
-  const { isAuthenticated } = useAuth()
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />
-  return children
-}
-
-function DashboardRedirect() {
-  const { user } = useAuth()
-  if (user?.role === 'driver') return <Navigate to="/driver" replace />
-  return <Navigate to="/passenger" replace />
-}
-
-export default function App() {
+function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <AuthProvider>
+      <BrowserRouter>
         <Routes>
-          <Route path="/login" element={
-            <GuestRoute><LoginPage /></GuestRoute>
-          } />
-          <Route path="/register" element={
-            <GuestRoute><RegisterPage /></GuestRoute>
-          } />
-          <Route path="/verify-otp" element={
-            <GuestRoute><OtpVerifyPage /></GuestRoute>
-          } />
-          <Route path="/forgot-password" element={
-            <ForgotPasswordPage />
-          } />
-          <Route path="/passenger" element={
-            <ProtectedRoute><PassengerDashboard /></ProtectedRoute>
-          } />
-          <Route path="/driver" element={
-            <ProtectedRoute><DriverDashboard /></ProtectedRoute>
-          } />
-          <Route path="/dashboard" element={
-            <ProtectedRoute><DashboardRedirect /></ProtectedRoute>
-          } />
-          <Route path="/admin" element={
-            <ProtectedRoute><AdminDashboard /></ProtectedRoute>
-          } />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Default Route */}
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+
+          {/* Auth Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+          {/* Dashboard Routes */}
+          <Route path="/dashboard" element={<PassengerDashboard />} />
+
+          {/*
+          TEMPORARILY DISABLED
+          Re-enable after frontend stabilizes
+          */}
+          {/*
+          <Route
+            path="/driver"
+            element={<DriverDashboard />}
+          />
+          */}
+
+          {/* Fallback */}
+          <Route
+            path="*"
+            element={
+              <div style={{
+                color: 'white',
+                background: '#001933',
+                height: '100vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontSize: '32px'
+              }}>
+                404 - Page Not Found
+              </div>
+            }
+          />
+
         </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
+
+export default App

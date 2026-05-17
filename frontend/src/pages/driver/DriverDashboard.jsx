@@ -9,8 +9,6 @@ import styles from './DriverDashboard.module.css';
 
 const UPDATE_INTERVAL = 30000; // 30 seconds per spec
 
-const { user } = useAuth()
-
 export default function DriverDashboard() {
   const { sendLocation, connected, busLocations } = useWebSocket();
   const { position, error: geoError, loading: geoLoading } = useGeolocation();
@@ -38,7 +36,7 @@ export default function DriverDashboard() {
       if (r.status === 'fulfilled') setRoutes(r.value?.routes || r.value || []);
     });
     // Check if already on shift
-    driversService.getMyShift(user.userId)
+    driversService.getMyShift()
       .then(data => { if (data?.shift || data?.busId) setShift(data.shift || data); })
       .catch(() => {});
   }, []);
