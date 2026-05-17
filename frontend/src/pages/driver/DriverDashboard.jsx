@@ -5,11 +5,13 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { driversService, busesService, routesService, locationService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext'
+
 import styles from './DriverDashboard.module.css';
 
 const UPDATE_INTERVAL = 30000; // 30 seconds per spec
 
 export default function DriverDashboard() {
+  const { user } = useAuth();
   const { sendLocation, connected, busLocations } = useWebSocket();
   const { position, error: geoError, loading: geoLoading } = useGeolocation();
 
@@ -36,9 +38,11 @@ export default function DriverDashboard() {
       if (r.status === 'fulfilled') setRoutes(r.value?.routes || r.value || []);
     });
     // Check if already on shift
-    driversService.getMyShift()
-      .then(data => { if (data?.shift || data?.busId) setShift(data.shift || data); })
-      .catch(() => {});
+    if (user?.userId) {
+      driversService.getMyProfile(user.userId)
+        .then(data => { if (data?.currentShift) setShift(data.currentShift); })
+        .catch(() => {});
+    }
   }, []);
 
   // Auto location push every 30s when on shift
@@ -50,8 +54,7 @@ export default function DriverDashboard() {
     // Also POST to REST API as fallback
     try {
       await locationService.updateLocation(
-        shift.busId || selectedBus,
-        pos.latitude, pos.longitude, pos.heading
+        pos.latitude, pos.longitude, Math.round((pos.speed || 0) * 3.6), pos.heading
       );
     } catch {}
 
