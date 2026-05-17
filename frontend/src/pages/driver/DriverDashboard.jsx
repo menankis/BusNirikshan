@@ -4,9 +4,12 @@ import { LiveMap } from '../../components/map/LiveMap';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { driversService, busesService, routesService, locationService } from '../../services/api';
+import { useAuth } from '../../context/AuthContext'
 import styles from './DriverDashboard.module.css';
 
 const UPDATE_INTERVAL = 30000; // 30 seconds per spec
+
+const { user } = useAuth()
 
 export default function DriverDashboard() {
   const { sendLocation, connected, busLocations } = useWebSocket();
@@ -35,7 +38,7 @@ export default function DriverDashboard() {
       if (r.status === 'fulfilled') setRoutes(r.value?.routes || r.value || []);
     });
     // Check if already on shift
-    driversService.getMyShift()
+    driversService.getMyShift(user.userId)
       .then(data => { if (data?.shift || data?.busId) setShift(data.shift || data); })
       .catch(() => {});
   }, []);

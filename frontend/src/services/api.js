@@ -74,6 +74,8 @@ export const routesService = {
 
 export const driversService = {
   getMyProfile: (driverId) => request(`/api/drivers/${driverId}`),
+
+  getMyShift: (driverId) => request(`/api/drivers/${driverId}/shifts`),
   
   startShift: (driverId, busId) =>
     request(`/api/drivers/${driverId}/shift/start`, {
