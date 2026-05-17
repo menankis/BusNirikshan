@@ -88,4 +88,4 @@ async function publish(busId, payload) {
     }
 }
 
-module.exports = { getSubscriber, publish, CHANNEL_PATTERN };
+module.exports = { getSubscriber, publish, CHANNEL_PATTERN, getPublisher };
