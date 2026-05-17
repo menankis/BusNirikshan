@@ -104,20 +104,20 @@ function startRedisSubscriber() {
     });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Express-WS route handler
-//
-// Mount with:  app.ws("/api/locations/live", locationWsHandler)
-//
-// Client protocol:
-//   → { "type": "subscribe",   "busIds": ["id1", "id2"] }
-//   → { "type": "unsubscribe", "busIds": ["id1"] }
-//
-// Server push:
-//   ← { "type": "location", "busId": "...", "lat": ..., "lng": ..., ... }
-//   ← { "type": "error", "message": "..." }
-//   ← { "type": "ack", "subscribed": [...], "unsubscribed": [...] }
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   WS /api/locations/livewebsocket
+ * @desc    WebSocket endpoint for real-time bus locations
+ * @access  Public
+ * 
+ * Client protocol:
+ *   → { "type": "subscribe",   "busIds": ["id1", "id2"] }
+ *   → { "type": "unsubscribe", "busIds": ["id1"] }
+ *
+ * Server push:
+ *   ← { "type": "location", "busId": "...", "lat": ..., "lng": ..., ... }
+ *   ← { "type": "error", "message": "..." }
+ *   ← { "type": "ack", "subscribed": [...], "unsubscribed": [...] }
+ */
 function locationWsHandler(ws, _req) {
     send(ws, {
         type: "connected",

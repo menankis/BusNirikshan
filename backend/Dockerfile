@@ -27,5 +27,4 @@ COPY . .
 USER appuser
 
 EXPOSE 5000
-
 CMD ["npm", "start"]

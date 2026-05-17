@@ -9,11 +9,14 @@ const router = express.Router();
 
 const DEFAULT_SPEED_KMH = 40;
 
-// ── POST /api/notifications/subscribe ────────────────────────────────────────
-// Passenger subscribes to ETA alerts for a specific stop + route.
-// When a bus on that route gets within thresholdMinutes of the stop,
-// they get notified.
-// Body: { stopId, routeId, thresholdMinutes }
+/**
+ * @route   POST /api/notifications/subscribe
+ * @desc    Passenger subscribes to ETA alerts for a specific stop + route. When a bus on that route gets within thresholdMinutes of the stop, they get notified.
+ * @access  Private
+ * @param   {string} req.body.stopId - ID of the stop
+ * @param   {string} req.body.routeId - ID of the route
+ * @param   {number} [req.body.thresholdMinutes=5] - ETA threshold in minutes to trigger alert
+ */
 router.post("/subscribe", async (req, res) => {
   try {
     const { stopId, routeId, thresholdMinutes = 5 } = req.body;
@@ -62,9 +65,13 @@ router.post("/subscribe", async (req, res) => {
   }
 });
 
-// ── DELETE /api/notifications/subscribe ──────────────────────────────────────
-// Passenger unsubscribes from alerts for a specific stop + route.
-// Body: { stopId, routeId }
+/**
+ * @route   DELETE /api/notifications/subscribe
+ * @desc    Passenger unsubscribes from alerts for a specific stop + route.
+ * @access  Private
+ * @param   {string} req.body.stopId - ID of the stop
+ * @param   {string} req.body.routeId - ID of the route
+ */
 router.delete("/subscribe", async (req, res) => {
   try {
     const { stopId, routeId } = req.body;
@@ -93,10 +100,11 @@ router.delete("/subscribe", async (req, res) => {
   }
 });
 
-// ── GET /api/notifications ────────────────────────────────────────────────────
-// Lists all active subscriptions for the logged-in passenger.
-// Also checks current ETA for each subscription so the passenger
-// can see how far away their bus is right now.
+/**
+ * @route   GET /api/notifications
+ * @desc    Lists all active subscriptions for the logged-in passenger. Also checks current ETA for each subscription so the passenger can see how far away their bus is right now.
+ * @access  Private
+ */
 router.get("/", async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -185,9 +193,14 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ── PATCH /api/notifications/subscribe ───────────────────────────────────────
-// Update the threshold minutes for an existing subscription
-// Body: { stopId, routeId, thresholdMinutes }
+/**
+ * @route   PATCH /api/notifications/subscribe
+ * @desc    Update the threshold minutes for an existing subscription
+ * @access  Private
+ * @param   {string} req.body.stopId - ID of the stop
+ * @param   {string} req.body.routeId - ID of the route
+ * @param   {number} req.body.thresholdMinutes - New ETA threshold in minutes to trigger alert
+ */
 router.patch("/subscribe", async (req, res) => {
   try {
     const { stopId, routeId, thresholdMinutes } = req.body;

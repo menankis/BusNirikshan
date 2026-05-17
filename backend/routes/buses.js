@@ -19,9 +19,15 @@ const TTL = {
     BUS_HISTORY: 120,
 };
 
-// GET /api/buses
-// Cache key encodes ALL query params (rtc, isActive, page, limit) so each
-// page/filter combination is stored as a separate entry.
+/**
+ * @route   GET /api/buses
+ * @desc    Get list of buses with optional filters (rtc, isActive) and pagination
+ * @access  Private
+ * @param   {string|string[]} [req.query.rtc] - Filter by RTC operator
+ * @param   {boolean|string} [req.query.isActive] - Filter by active status ('true' or 'false')
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/", async (req, res) => {
     try {
         const { rtc, isActive } = req.query;
@@ -63,7 +69,12 @@ router.get("/", async (req, res) => {
     }
 });
 
-// GET /api/buses/:busId
+/**
+ * @route   GET /api/buses/:busId
+ * @desc    Get details of a specific bus
+ * @access  Private
+ * @param   {string} req.params.busId - Bus ID (Path)
+ */
 router.get("/:busId", async (req, res) => {
     try {
         const { busId } = req.params;
@@ -83,8 +94,17 @@ router.get("/:busId", async (req, res) => {
     }
 });
 
-// POST /api/buses — admin only
-// Invalidates all list pages (new bus shifts pagination for every page)
+/**
+ * @route   POST /api/buses
+ * @desc    Create a new bus
+ * @access  Private (Admin)
+ * @param   {string} req.body.routeId - Associated Route ID
+ * @param   {string} req.body.rtc - RTC operator
+ * @param   {string} req.body.routeName - Name of the route
+ * @param   {string} req.body.registrationNumber - Bus registration plate
+ * @param   {number} req.body.capacity - Passenger capacity
+ * @param   {boolean} [req.body.isActive] - Active status
+ */
 router.post("/", requireRole("admin"), async (req, res) => {
     try {
 
@@ -117,8 +137,23 @@ router.post("/", requireRole("admin"), async (req, res) => {
     }
 });
 
-// PATCH /api/buses/:busId — admin only
-// Invalidates detail, status, eta, and ALL list pages
+/**
+ * @route   PATCH /api/buses/:busId
+ * @desc    Update an existing bus (including its location)
+ * @access  Private (Admin)
+ * @param   {string} req.params.busId - Bus ID (Path)
+ * @param   {string} [req.body.routeId] - Associated Route ID
+ * @param   {string} [req.body.rtc] - RTC operator
+ * @param   {string} [req.body.routeName] - Name of the route
+ * @param   {string} [req.body.registrationNumber] - Bus registration plate
+ * @param   {number} [req.body.capacity] - Passenger capacity
+ * @param   {boolean} [req.body.isActive] - Active status
+ * @param   {object} [req.body.location] - GeoJSON location object { coordinates: [lng, lat] }
+ * @param   {number} [req.body.latitude] - Latitude (alternative to location object)
+ * @param   {number} [req.body.longitude] - Longitude (alternative to location object)
+ * @param   {number} [req.body.speed_kmh] - Bus speed in km/h
+ * @param   {number} [req.body.heading_deg] - Bus heading in degrees
+ */
 router.patch("/:busId", requireRole("admin"), async (req, res) => {
     try {
 
@@ -195,7 +230,12 @@ router.patch("/:busId", requireRole("admin"), async (req, res) => {
     }
 });
 
-// DELETE /api/buses/:busId — admin only
+/**
+ * @route   DELETE /api/buses/:busId
+ * @desc    Delete a bus
+ * @access  Private (Admin)
+ * @param   {string} req.params.busId - Bus ID (Path)
+ */
 router.delete("/:busId", requireRole("admin"), async (req, res) => {
     try {
 
@@ -223,7 +263,12 @@ router.delete("/:busId", requireRole("admin"), async (req, res) => {
     }
 });
 
-// GET /api/buses/:busId/status  — TTL 5 s (near real-time)
+/**
+ * @route   GET /api/buses/:busId/status
+ * @desc    Get near real-time status of a bus (isActive, lastKnownLocation)
+ * @access  Private
+ * @param   {string} req.params.busId - Bus ID (Path)
+ */
 router.get("/:busId/status", async (req, res) => {
     try {
         const { busId } = req.params;
@@ -245,9 +290,16 @@ router.get("/:busId/status", async (req, res) => {
     }
 });
 
-// GET /api/buses/:busId/history
-// Cache key encodes busId + time window + page + limit so each page of a
-// time-range query is stored independently.
+/**
+ * @route   GET /api/buses/:busId/history
+ * @desc    Get location history for a bus within a time range
+ * @access  Private
+ * @param   {string} req.params.busId - Bus ID (Path)
+ * @param   {string|number} req.query.from - Start epoch timestamp
+ * @param   {string|number} req.query.to - End epoch timestamp
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/:busId/history", async (req, res) => {
     try {
         const { busId } = req.params;
@@ -304,8 +356,13 @@ router.get("/:busId/history", async (req, res) => {
 });
 
 
-// GET /api/buses/:busId/eta  — TTL 10 s
-// Key: busId + stopId (no pagination — single calculation)
+/**
+ * @route   GET /api/buses/:busId/eta
+ * @desc    Calculate Estimated Time of Arrival to a specific stop
+ * @access  Private
+ * @param   {string} req.params.busId - Bus ID (Path)
+ * @param   {string} req.query.stopId - Stop ID
+ */
 router.get("/:busId/eta", async (req, res) => {
     try {
         const { busId } = req.params;

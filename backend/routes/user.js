@@ -14,13 +14,12 @@ const TTL = {
 
 const userCacheKey = (userId) => `user:profile:${userId}`;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/user/:userId
-// Fetch a user's own profile (or any profile for admins).
-//
-// Cached for TTL.USER_PROFILE seconds per userId.
-// Cache is invalidated immediately on PATCH and DELETE.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/user/:userId
+ * @desc    Fetch a user's own profile (or any profile for admins).
+ * @access  Private
+ * @param   {string} req.params.userId - User ID (Path)
+ */
 router.get("/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
@@ -47,12 +46,15 @@ router.get("/:userId", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PATCH /api/user/:userId
-// Update a user's own profile (or any profile for admins).
-//
-// Invalidates the user's profile cache entry on success.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   PATCH /api/user/:userId
+ * @desc    Update a user's own profile (or any profile for admins).
+ * @access  Private
+ * @param   {string} req.params.userId - User ID (Path)
+ * @param   {string} [req.body.name] - User name
+ * @param   {string} [req.body.rtc] - RTC operator
+ * @param   {boolean} [req.body.isActive] - Active status
+ */
 router.patch("/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
@@ -106,12 +108,12 @@ router.patch("/:userId", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/user/:userId
-// Delete a user and cascade-remove their sessions and password tokens.
-//
-// Invalidates the user's profile cache entry.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   DELETE /api/user/:userId
+ * @desc    Delete a user and cascade-remove their sessions and password tokens.
+ * @access  Private
+ * @param   {string} req.params.userId - User ID (Path)
+ */
 router.delete("/:userId", async (req, res) => {
     try {
         const { userId } = req.params;

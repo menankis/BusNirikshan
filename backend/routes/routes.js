@@ -17,12 +17,16 @@ const TTL = {
     ROUTE_BUSES:  20,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/routes
-// Cache key encodes all query params (rtc, isActive, stopId, page, limit)
-// so each unique page/filter combination is stored as its own entry.
-// Invalidated (all pages) on POST/PATCH/DELETE.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/routes
+ * @desc    Get a list of routes with optional filters (rtc, isActive, stopId) and pagination.
+ * @access  Private
+ * @param   {string|string[]} [req.query.rtc] - Filter by RTC operator
+ * @param   {boolean|string} [req.query.isActive] - Filter by active status
+ * @param   {string} [req.query.stopId] - Filter by Stop ID
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/", async (req, res) => {
     try {
         const { rtc, isActive, stopId } = req.query;
@@ -72,9 +76,12 @@ router.get("/", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/routes/:routeId  — TTL 120 s
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/routes/:routeId
+ * @desc    Get details of a specific route.
+ * @access  Private
+ * @param   {string} req.params.routeId - Route ID (Path)
+ */
 router.get("/:routeId", async (req, res) => {
     try {
         const { routeId } = req.params;
@@ -95,10 +102,17 @@ router.get("/:routeId", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/routes — admin only
-// Invalidates all route list pages (total count changes)
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   POST /api/routes
+ * @desc    Create a new route.
+ * @access  Private (Admin)
+ * @param   {string} req.body.name - Route name
+ * @param   {string} req.body.rtc - RTC operator
+ * @param   {string[]} [req.body.stopIds] - Array of Stop IDs
+ * @param   {number} req.body.totalDistanceKm - Total distance in km
+ * @param   {number} req.body.estimatedDurationMin - Estimated duration in minutes
+ * @param   {boolean} [req.body.isActive] - Active status
+ */
 router.post("/", requireRole("admin"), async (req, res) => {
     try {
 
@@ -134,10 +148,18 @@ router.post("/", requireRole("admin"), async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PATCH /api/routes/:routeId — admin only
-// Invalidates detail + all list pages + this route's bus list pages
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   PATCH /api/routes/:routeId
+ * @desc    Update an existing route.
+ * @access  Private (Admin)
+ * @param   {string} req.params.routeId - Route ID (Path)
+ * @param   {string} [req.body.name] - Route name
+ * @param   {string} [req.body.rtc] - RTC operator
+ * @param   {string[]} [req.body.stopIds] - Array of Stop IDs
+ * @param   {number} [req.body.totalDistanceKm] - Total distance in km
+ * @param   {number} [req.body.estimatedDurationMin] - Estimated duration in minutes
+ * @param   {boolean} [req.body.isActive] - Active status
+ */
 router.patch("/:routeId", requireRole("admin"), async (req, res) => {
     try {
 
@@ -186,9 +208,12 @@ router.patch("/:routeId", requireRole("admin"), async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/routes/:routeId — admin only
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   DELETE /api/routes/:routeId
+ * @desc    Delete a route.
+ * @access  Private (Admin)
+ * @param   {string} req.params.routeId - Route ID (Path)
+ */
 router.delete("/:routeId", requireRole("admin"), async (req, res) => {
     try {
         const { routeId } = req.params;
@@ -212,11 +237,14 @@ router.delete("/:routeId", requireRole("admin"), async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/routes/:routeId/buses
-// Cache key encodes routeId + page + limit so each page is stored separately.
-// TTL 20 s — active buses on a route change relatively quickly.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/routes/:routeId/buses
+ * @desc    Get active buses currently on a specific route.
+ * @access  Private
+ * @param   {string} req.params.routeId - Route ID (Path)
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/:routeId/buses", async (req, res) => {
     try {
         const { routeId } = req.params;

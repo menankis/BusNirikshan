@@ -64,6 +64,11 @@ app.use("/api/locations", authorise, userApiLimiter, locationSseRoutes);
 app.use("/api/notifications", authorise, notificationLimiter, notificationRoutes);
 app.ws("/api/locations/livewebsocket", locationWsHandler);
 
+// ── Swagger UI ────────────────────────────────────────────────────────────────
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger-output.json');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/", (req, res) => res.send("BusNirikshan API is running"));
 
