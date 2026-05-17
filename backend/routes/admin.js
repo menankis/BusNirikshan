@@ -9,8 +9,14 @@ const router = express.Router();
 // All admin routes are protected — only admins can call these
 router.use(requireRole("admin"));
 
-// ── GET /api/admin/users ──────────────────────────────────────────────────────
-// List all users. Supports filtering by ?role=admin|driver|user
+/**
+ * @route   GET /api/admin/users
+ * @desc    List all users. Supports filtering by ?role=admin|driver|user
+ * @access  Private (Admin)
+ * @param   {string} [req.query.role] - Filter by user role (admin, driver, user)
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/users", async (req, res) => {
   try {
     const { role } = req.query;
@@ -51,8 +57,13 @@ router.get("/users", async (req, res) => {
   }
 });
 
-// ── PATCH /api/admin/users/:userId/role ───────────────────────────────────────
-// Change a user's role. Body: { role: "admin" | "driver" | "user" }
+/**
+ * @route   PATCH /api/admin/users/:userId/role
+ * @desc    Change a user's role. Body: { role: "admin" | "driver" | "user" }
+ * @access  Private (Admin)
+ * @param   {string} req.params.userId - User ID (Path)
+ * @param   {string} req.body.role - New role ("admin" | "driver" | "user")
+ */
 router.patch("/users/:userId/role", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -87,9 +98,11 @@ router.patch("/users/:userId/role", async (req, res) => {
   }
 });
 
-// ── GET /api/admin/system/health ──────────────────────────────────────────────
-// Pings MongoDB and Redis to check system health.
-// Used by dashboards and uptime monitors.
+/**
+ * @route   GET /api/admin/system/health
+ * @desc    Pings MongoDB and Redis to check system health.
+ * @access  Private (Admin)
+ */
 router.get("/system/health", async (req, res) => {
   const health = {
     status: "ok",
@@ -127,9 +140,11 @@ router.get("/system/health", async (req, res) => {
   return res.status(httpStatus).json(health);
 });
 
-// ── GET /api/admin/system/instances ───────────────────────────────────────────
-// Returns registered Node.js server instances from Redis.
-// Useful for understanding horizontal scaling — how many instances are running.
+/**
+ * @route   GET /api/admin/system/instances
+ * @desc    Returns registered Node.js server instances from Redis.
+ * @access  Private (Admin)
+ */
 router.get("/system/instances", async (req, res) => {
   try {
     const redis = req.app.locals.redisClient;

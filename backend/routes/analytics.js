@@ -13,7 +13,14 @@ function parseEpoch(value, fieldName) {
   return new Date(ms);
 }
 
-// ── GET /api/analytics/bus/:busId/trail ───────────────────────────────────────
+/**
+ * @route   GET /api/analytics/bus/:busId/trail
+ * @desc    Get GPS trail for a bus within a time range
+ * @access  Private
+ * @param   {string} req.params.busId - Bus ID (Path)
+ * @param   {string|number} req.query.from - Start epoch timestamp
+ * @param   {string|number} req.query.to - End epoch timestamp
+ */
 router.get("/bus/:busId/trail", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -62,8 +69,16 @@ router.get("/bus/:busId/trail", async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/bus/:busId/speed ───────────────────────────────────────
-// Supports ?from=<epoch>&to=<epoch> OR ?date=YYYY-MM-DD (full day range)
+/**
+ * @route   GET /api/analytics/bus/:busId/speed
+ * @desc    Get average, min, max speed over time intervals
+ * @access  Private
+ * @param   {string} req.params.busId - Bus ID (Path)
+ * @param   {string|number} [req.query.from] - Start epoch timestamp
+ * @param   {string|number} [req.query.to] - End epoch timestamp
+ * @param   {string} [req.query.date] - Date in YYYY-MM-DD format
+ * @param   {string} [req.query.interval] - Aggregation interval ("hour" | "day")
+ */
 router.get("/bus/:busId/speed", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -141,9 +156,15 @@ router.get("/bus/:busId/speed", async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/stops/:stopId/traffic ─────────────────────────────────
-// Supports ?from=<epoch>&to=<epoch> OR ?date=YYYY-MM-DD (full day range)
-// FIX: switched from $nearSphere to $geoWithin/$centerSphere
+/**
+ * @route   GET /api/analytics/stops/:stopId/traffic
+ * @desc    Count buses and pings near a stop within a time range
+ * @access  Private
+ * @param   {string} req.params.stopId - Stop ID (Path)
+ * @param   {string|number} [req.query.from] - Start epoch timestamp
+ * @param   {string|number} [req.query.to] - End epoch timestamp
+ * @param   {string} [req.query.date] - Date in YYYY-MM-DD format
+ */
 router.get("/stops/:stopId/traffic", async (req, res) => {
   try {
     const { stopId } = req.params;
@@ -215,7 +236,11 @@ router.get("/stops/:stopId/traffic", async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/system/active-buses ────────────────────────────────────
+/**
+ * @route   GET /api/analytics/system/active-buses
+ * @desc    Get count of active vs inactive buses by RTC
+ * @access  Private (Admin)
+ */
 router.get("/system/active-buses", requireRole("admin"), async (req, res) => {
   try {
     const breakdown = await Bus.aggregate([
@@ -259,9 +284,15 @@ router.get("/system/active-buses", requireRole("admin"), async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/bus/:busId/summary ─────────────────────────────────────
-// Returns a quick summary — total pings, avg speed, max speed
-// Supports ?from=<epoch>&to=<epoch> OR ?date=YYYY-MM-DD
+/**
+ * @route   GET /api/analytics/bus/:busId/summary
+ * @desc    Quick summary of total pings, avg speed, max speed for a bus
+ * @access  Private
+ * @param   {string} req.params.busId - Bus ID (Path)
+ * @param   {string|number} [req.query.from] - Start epoch timestamp
+ * @param   {string|number} [req.query.to] - End epoch timestamp
+ * @param   {string} [req.query.date] - Date in YYYY-MM-DD format
+ */
 router.get("/bus/:busId/summary", async (req, res) => {
   try {
     const { busId } = req.params;
@@ -333,9 +364,12 @@ router.get("/bus/:busId/summary", async (req, res) => {
   }
 });
 
-// ── GET /api/analytics/driver/:driverId/stats ─────────────────────────────────
-// Driver performance stats — total shifts, total hours, avg shift duration
-// Goes beyond the original spec — added for deeper operational insights
+/**
+ * @route   GET /api/analytics/driver/:driverId/stats
+ * @desc    Driver performance stats (shifts, hours, avg duration)
+ * @access  Private
+ * @param   {string} req.params.driverId - Driver ID (Path)
+ */
 router.get("/driver/:driverId/stats", async (req, res) => {
   try {
     const { driverId } = req.params;

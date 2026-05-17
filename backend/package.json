@@ -19,6 +19,7 @@
     "stop": "pm2 stop server.js",
     "restart": "pm2 restart server.js",
     "logs": "pm2 logs",
+    "swagger": "node swagger.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -34,6 +35,8 @@
     "mongoose": "^9.4.1",
     "morgan": "^1.10.1",
     "nodemailer": "^8.0.5",
-    "pm2": "^7.0.1"
+    "pm2": "^7.0.1",
+    "swagger-autogen": "^2.23.7",
+    "swagger-ui-express": "^5.0.1"
   }
 }

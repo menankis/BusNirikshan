@@ -15,8 +15,15 @@ const CACHE_TTL = {
   DETAIL: 60,
 };
 
-// ── GET /api/drivers ──────────────────────────────────────────────────────────
-// Admin only. Supports filtering by ?rtc=X and ?isOnShift=true/false
+/**
+ * @route   GET /api/drivers
+ * @desc    Get list of drivers. Supports filtering by ?rtc=X and ?isOnShift=true/false
+ * @access  Private (Admin)
+ * @param   {string} [req.query.rtc] - Filter by RTC operator
+ * @param   {boolean|string} [req.query.isOnShift] - Filter by shift status ('true' or 'false')
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/", requireRole("admin"), async (req, res) => {
   try {
     const { rtc, isOnShift } = req.query;
@@ -63,7 +70,12 @@ router.get("/", requireRole("admin"), async (req, res) => {
   }
 });
 
-// ── GET /api/drivers/:driverId ────────────────────────────────────────────────
+/**
+ * @route   GET /api/drivers/:driverId
+ * @desc    Get details of a specific driver
+ * @access  Private
+ * @param   {string} req.params.driverId - Driver ID (Path)
+ */
 router.get("/:driverId", async (req, res) => {
   try {
     const { driverId } = req.params;
@@ -88,10 +100,14 @@ router.get("/:driverId", async (req, res) => {
   }
 });
 
-// ── POST /api/drivers ─────────────────────────────────────────────────────────
-// Admin only. Links an existing User to a Driver profile.
-// ── POST /api/drivers ─────────────────────────────────────────────────────────
-// Admin only. Links an existing User to a Driver profile.
+/**
+ * @route   POST /api/drivers
+ * @desc    Links an existing User to a Driver profile.
+ * @access  Private (Admin)
+ * @param   {string} req.body.userId - User ID to link
+ * @param   {string} req.body.rtc - RTC operator
+ * @param   {string} req.body.licenseNumber - Driver license number
+ */
 router.post("/", requireRole("admin"), async (req, res) => {
   try {
     const { userId, rtc, licenseNumber } = req.body;
@@ -132,8 +148,15 @@ router.post("/", requireRole("admin"), async (req, res) => {
   }
 });
 
-// ── PATCH /api/drivers/:driverId ──────────────────────────────────────────────
-// Admin only. Update rtc, licenseNumber, or assignedBusId.
+/**
+ * @route   PATCH /api/drivers/:driverId
+ * @desc    Update rtc, licenseNumber, or assignedBusId.
+ * @access  Private (Admin)
+ * @param   {string} req.params.driverId - Driver ID (Path)
+ * @param   {string} [req.body.rtc] - RTC operator
+ * @param   {string} [req.body.licenseNumber] - Driver license number
+ * @param   {string} [req.body.assignedBusId] - Bus ID to assign
+ */
 router.patch("/:driverId", requireRole("admin"), async (req, res) => {
   try {
     const { driverId } = req.params;
@@ -174,8 +197,12 @@ router.patch("/:driverId", requireRole("admin"), async (req, res) => {
   }
 });
 
-// ── DELETE /api/drivers/:driverId ─────────────────────────────────────────────
-// Admin only. Removes the driver profile — does NOT delete the User account.
+/**
+ * @route   DELETE /api/drivers/:driverId
+ * @desc    Removes the driver profile (does NOT delete the User account).
+ * @access  Private (Admin)
+ * @param   {string} req.params.driverId - Driver ID (Path)
+ */
 router.delete("/:driverId", requireRole("admin"), async (req, res) => {
   try {
     const { driverId } = req.params;
@@ -201,10 +228,13 @@ router.delete("/:driverId", requireRole("admin"), async (req, res) => {
   }
 });
 
-// ── POST /api/drivers/:driverId/shift/start ───────────────────────────────────
-// Driver starts a shift on a specific bus.
-// This is the key endpoint — it sets bus.isActive = true so the bus
-// immediately shows up on the passenger live map.
+/**
+ * @route   POST /api/drivers/:driverId/shift/start
+ * @desc    Driver starts a shift on a specific bus. Sets bus.isActive = true.
+ * @access  Private
+ * @param   {string} req.params.driverId - Driver ID (Path)
+ * @param   {string} req.body.busId - Bus ID to start shift on
+ */
 router.post("/:driverId/shift/start", async (req, res) => {
   try {
     const { driverId } = req.params;
@@ -275,8 +305,12 @@ router.post("/:driverId/shift/start", async (req, res) => {
   }
 });
 
-// ── POST /api/drivers/:driverId/shift/end ─────────────────────────────────────
-// Driver ends their active shift. Bus goes inactive on the live map.
+/**
+ * @route   POST /api/drivers/:driverId/shift/end
+ * @desc    Driver ends their active shift. Bus goes inactive on the live map.
+ * @access  Private
+ * @param   {string} req.params.driverId - Driver ID (Path)
+ */
 router.post("/:driverId/shift/end", async (req, res) => {
   try {
     const { driverId } = req.params;
@@ -336,9 +370,14 @@ router.post("/:driverId/shift/end", async (req, res) => {
   }
 });
 
-// ── GET /api/drivers/:driverId/shifts ─────────────────────────────────────────
-// Returns shift history for a driver with pagination
-// Query: ?page=1&limit=10
+/**
+ * @route   GET /api/drivers/:driverId/shifts
+ * @desc    Returns shift history for a driver with pagination
+ * @access  Private
+ * @param   {string} req.params.driverId - Driver ID (Path)
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/:driverId/shifts", async (req, res) => {
   try {
     const { driverId } = req.params;

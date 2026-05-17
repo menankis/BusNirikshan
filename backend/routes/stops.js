@@ -18,11 +18,15 @@ const TTL = {
     STOP_BUSES:   10,  // approaching buses + ETAs — near real-time
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/stops
-// Cache key encodes all query params (city, rtc, page, limit) so every
-// unique page/filter combination is stored independently.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/stops
+ * @desc    Get a list of stops with optional filters (city, rtc) and pagination.
+ * @access  Private
+ * @param   {string} [req.query.city] - Filter by city
+ * @param   {string|string[]} [req.query.rtc] - Filter by RTC operator
+ * @param   {number} [req.query.page] - Pagination page number
+ * @param   {number} [req.query.limit] - Pagination limit per page
+ */
 router.get("/", async (req, res) => {
     try {
         const { city, rtc } = req.query;
@@ -58,11 +62,14 @@ router.get("/", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/stops/nearby
-// No DB-level pagination ($near is already proximity-limited).
-// Cache key: lng + lat + radius.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/stops/nearby
+ * @desc    Get stops near a specific geographical point.
+ * @access  Private
+ * @param   {number} req.query.longitude - Longitude of center point
+ * @param   {number} req.query.latitude - Latitude of center point
+ * @param   {number} [req.query.radius] - Search radius in meters (default 5000)
+ */
 router.get("/nearby", async (req, res) => {
     try {
         const { longitude, latitude, radius } = req.query;
@@ -109,9 +116,12 @@ router.get("/nearby", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/stops/:stopId  — TTL 300 s (stop details rarely change)
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/stops/:stopId
+ * @desc    Get details of a specific stop.
+ * @access  Private
+ * @param   {string} req.params.stopId - Stop ID (Path)
+ */
 router.get("/:stopId", async (req, res) => {
     try {
         const { stopId } = req.params;
@@ -132,10 +142,19 @@ router.get("/:stopId", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/stops — admin only
-// Invalidates all list pages + nearby (new stop changes proximity results)
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   POST /api/stops
+ * @desc    Create a new stop.
+ * @access  Private (Admin)
+ * @param   {string} req.body.name - Stop name
+ * @param   {string} req.body.city - City
+ * @param   {string} req.body.state - State
+ * @param   {string[]} req.body.rtc - Array of RTC operators
+ * @param   {object} [req.body.location] - GeoJSON location object { coordinates: [lng, lat] }
+ * @param   {number} [req.body.latitude] - Latitude (alternative to location object)
+ * @param   {number} [req.body.longitude] - Longitude (alternative to location object)
+ * @param   {boolean} [req.body.isActive] - Active status
+ */
 router.post("/", requireRole("admin"), async (req, res) => {
     try {
 
@@ -184,10 +203,20 @@ router.post("/", requireRole("admin"), async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PATCH /api/stops/:stopId — admin only
-// Invalidates detail + all list pages + nearby + buses-at-stop
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   PATCH /api/stops/:stopId
+ * @desc    Update an existing stop.
+ * @access  Private (Admin)
+ * @param   {string} req.params.stopId - Stop ID (Path)
+ * @param   {string} [req.body.name] - Stop name
+ * @param   {string} [req.body.city] - City
+ * @param   {string} [req.body.state] - State
+ * @param   {string[]} [req.body.rtc] - Array of RTC operators
+ * @param   {object} [req.body.location] - GeoJSON location object { coordinates: [lng, lat] }
+ * @param   {number} [req.body.latitude] - Latitude (alternative to location object)
+ * @param   {number} [req.body.longitude] - Longitude (alternative to location object)
+ * @param   {boolean} [req.body.isActive] - Active status
+ */
 router.patch("/:stopId", requireRole("admin"), async (req, res) => {
     try {
 
@@ -253,9 +282,12 @@ router.patch("/:stopId", requireRole("admin"), async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DELETE /api/stops/:stopId — admin only
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   DELETE /api/stops/:stopId
+ * @desc    Delete a stop.
+ * @access  Private (Admin)
+ * @param   {string} req.params.stopId - Stop ID (Path)
+ */
 router.delete("/:stopId", requireRole("admin"), async (req, res) => {
     try {
 
@@ -282,10 +314,12 @@ router.delete("/:stopId", requireRole("admin"), async (req, res) => {
 });
 
 
-// GET /api/stops/:stopId/buses  — TTL 10 s (approaching buses + ETAs)
-// No pagination — all approaching buses are returned (typically a small set).
-// Cache is keyed only on stopId; invalidated by any POST /api/locations.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/stops/:stopId/buses
+ * @desc    Get approaching buses and ETAs for a specific stop.
+ * @access  Private
+ * @param   {string} req.params.stopId - Stop ID (Path)
+ */
 router.get("/:stopId/buses", async (req, res) => {
     try {
         const { stopId } = req.params;

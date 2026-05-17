@@ -8,9 +8,13 @@ const router = express.Router();
 
 const DEFAULT_SPEED_KMH = 40;
 
-// ── GET /api/eta ──────────────────────────────────────────────────────────────
-// Batch ETA for multiple buses to a single stop.
-// Query: ?stopId=X&busIds=A,B,C
+/**
+ * @route   GET /api/eta
+ * @desc    Batch ETA for multiple buses to a single stop. Query: ?stopId=X&busIds=A,B,C
+ * @access  Private
+ * @param   {string} req.query.stopId - Stop ID
+ * @param   {string} req.query.busIds - Comma-separated list of Bus IDs
+ */
 router.get("/", async (req, res) => {
   try {
     const { stopId, busIds } = req.query;
@@ -86,9 +90,13 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ── GET /api/eta/stop/:stopId ─────────────────────────────────────────────────
-// ETA for ALL active buses within a radius of a given stop.
-// FIX: switched from $nearSphere to $geoWithin/$centerSphere (no index needed)
+/**
+ * @route   GET /api/eta/stop/:stopId
+ * @desc    ETA for ALL active buses within a radius of a given stop.
+ * @access  Private
+ * @param   {string} req.params.stopId - Stop ID (Path)
+ * @param   {number} [req.query.radius_km] - Search radius in kilometers (default 10)
+ */
 router.get("/stop/:stopId", async (req, res) => {
   try {
     const { stopId } = req.params;

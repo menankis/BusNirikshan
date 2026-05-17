@@ -18,16 +18,16 @@ const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /register/init
-//
-// Step 1 of 2 — validate the registration details, generate a 6-digit OTP,
-// store a bcrypt hash of it (+ the pending user snapshot) in OtpToken, then
-// email the code.  The real User document is NOT created yet.
-//
-// Re-sending to the same email cancels any previous pending OTP first so only
-// one valid code exists at a time.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   POST /api/auth/register/init
+ * @desc    Step 1 of 2 — validate registration details, generate 6-digit OTP, and email it.
+ * @access  Public
+ * @param   {string} req.body.name - User's full name
+ * @param   {string} req.body.email - User's email address
+ * @param   {string} req.body.password - User's password
+ * @param   {string} req.body.role - User's role
+ * @param   {string} [req.body.rtc] - RTC operator (if applicable)
+ */
 router.post("/register/init", otpLimiter, async (req, res) => {
     try {
         const { name, email, password, role, rtc } = req.body;
@@ -85,13 +85,13 @@ router.post("/register/init", otpLimiter, async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /register/verify
-//
-// Step 2 of 2 — the client submits the OTP received by email.  A single atomic
-// findOneAndUpdate marks the token used so concurrent replays are impossible.
-// On success, the pending user snapshot is promoted to a real User document.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   POST /api/auth/register/verify
+ * @desc    Step 2 of 2 — Verify OTP and create user account.
+ * @access  Public
+ * @param   {string} req.body.email - User's email address
+ * @param   {string|number} req.body.otp - 6-digit OTP code sent via email
+ */
 router.post("/register/verify", otpLimiter, async (req, res) => {
     try {
         const { email, otp } = req.body;
@@ -135,6 +135,13 @@ router.post("/register/verify", otpLimiter, async (req, res) => {
     }
 });
 
+/**
+ * @route   POST /api/auth/login
+ * @desc    Authenticate user and get access/refresh tokens
+ * @access  Public
+ * @param   {string} req.body.email - User's email address
+ * @param   {string} req.body.password - User's password
+ */
 router.post("/login", accountLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -184,6 +191,12 @@ router.post("/login", accountLimiter, async (req, res) => {
 });
 
 
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user and clear current refresh token
+ * @access  Private
+ * @param   {string} req.cookies.refresh_token - Refresh token
+ */
 router.post("/logout", authorise, async (req, res) => {
     try {
         const refresh_token = req.cookies.refresh_token;
@@ -200,6 +213,11 @@ router.post("/logout", authorise, async (req, res) => {
 });
 
 
+/**
+ * @route   POST /api/auth/logout-all
+ * @desc    Logout user from all devices (revoke all refresh tokens)
+ * @access  Private
+ */
 router.post("/logout-all", authorise, async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -219,6 +237,12 @@ router.post("/logout-all", authorise, async (req, res) => {
 });
 
 
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh access token using refresh token
+ * @access  Public
+ * @param   {string} req.cookies.refresh_token - Refresh token
+ */
 router.post("/refresh", refreshLimiter, async (req, res) => {
     try {
         const refresh_token = req.cookies.refresh_token;
@@ -283,6 +307,12 @@ router.post("/refresh", refreshLimiter, async (req, res) => {
     }
 });
 
+/**
+ * @route   POST /api/auth/forgot-password
+ * @desc    Send password reset link to user's email
+ * @access  Public
+ * @param   {string} req.body.email - User's email address
+ */
 router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
     try {
         const { email } = req.body;
@@ -341,6 +371,13 @@ router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
 });
 
 
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Reset password using reset token
+ * @access  Public
+ * @param   {string} req.body.token - Password reset token
+ * @param   {string} req.body.newPassword - New password
+ */
 router.post("/reset-password", async (req, res) => {
     try {
         const { token, newPassword } = req.body;

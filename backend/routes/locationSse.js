@@ -4,27 +4,12 @@ const { getSubscriber, CHANNEL_PATTERN } = require("../utils/pubsub");
 
 const router = express.Router();
 
-// ── GET /api/locations/livesse ────────────────────────────────────────────────
-// Server-Sent Events feed for live bus locations.
-//
-// This is the SSE alternative to the WebSocket at /api/locations/livewebsocket.
-// Both tap into the same Redis Pub/Sub channels — the difference is transport:
-//
-//   WebSocket  → bi-directional, persistent socket, requires upgrade handshake
-//   SSE        → one-way (server → client), plain HTTP, auto-reconnects built in
-//
-// This endpoint exists specifically for the Polling vs SSE vs WebSocket
-// benchmark that is a core deliverable of this project.
-//
-// Query params:
-//   ?busIds=A,B,C   subscribe to specific buses (comma separated ObjectIds)
-//   ?busIds=all     subscribe to all currently active buses (max 50)
-//
-// SSE event types the client will receive:
-//   event: subscribed   → sent once on connect, confirms which buses are tracked
-//   event: location     → fired every time a GPS update arrives from Redis
-//   event: error        → sent before closing the stream on a fatal error
-//   : keepalive         → comment line every 25s to keep proxies alive
+/**
+ * @route   GET /api/locations/livesse
+ * @desc    Server-Sent Events feed for live bus locations.
+ * @access  Private
+ * @param   {string} [req.query.busIds] - Comma-separated list of bus IDs to track, or "all"
+ */
 
 router.get("/livesse", async (req, res) => {
 

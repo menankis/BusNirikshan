@@ -16,22 +16,16 @@ const TTL = {
     LIVE_ONE: 5,   // single bus location
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/locations
-// Driver submits a real-time GPS update.
-//
-// Auth:   Bearer token required (role must be "driver")
-// Body:   { lat, lng, speed_kmh?, heading_deg?, timestamp? }
-//
-// On success, three writes happen atomically-ish in parallel:
-//   1. BusLocation  — insert a new time-series document (permanent log, TTL 24h)
-//   2. Bus          — update lastKnownLocation GeoJSON point (enables $near queries)
-//   3. Shift        — increment totalPointsRecorded counter
-//
-// Cache invalidation:
-//   Wipes live-location entries for this bus and all-bus live list, plus
-//   stop-level bus-ETA caches and the per-bus status/eta entries.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   POST /api/locations
+ * @desc    Driver submits a real-time GPS update. Body: { lat, lng, speed_kmh?, heading_deg?, timestamp? }
+ * @access  Private (Driver)
+ * @param   {number} req.body.lat - Latitude
+ * @param   {number} req.body.lng - Longitude
+ * @param   {number} [req.body.speed_kmh] - Speed in km/h
+ * @param   {number} [req.body.heading_deg] - Heading in degrees
+ * @param   {string|number} [req.body.timestamp] - Timestamp of the reading
+ */
 router.post("/", requireRole("driver"), async (req, res) => {
     try {
         // ── 1. Payload validation ────────────────────────────────────────────
@@ -183,21 +177,17 @@ router.post("/", requireRole("driver"), async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/locations/live
-// Returns the latest known position of every active bus.
-//
-// Auth:    None required (public endpoint — passengers use this)
-// Query:   lat + lng — centre point for geospatial query (both required together)
-//          radius?  — search radius in km (default: 10, max: 100)
-//          rtc?     — filter by RTC operator (GSRTC | MSRTC | RSRTC), repeatable
-//          routeId? — filter to buses serving a specific route
-//          limit?   — cap result count (default: 50, max: 200)
-//
-// Cache key encodes the full sorted query string (lat, lng, radius, rtc,
-// routeId, limit) so each unique view is cached independently.
-// TTL is intentionally short (5 s) for near real-time passenger experience.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/locations/live
+ * @desc    Returns the latest known position of active buses. Supports spatial filters.
+ * @access  Public
+ * @param   {number} [req.query.lat] - Latitude for spatial filter
+ * @param   {number} [req.query.lng] - Longitude for spatial filter
+ * @param   {number} [req.query.radius] - Search radius in km (default 10)
+ * @param   {string|string[]} [req.query.rtc] - Filter by RTC operator
+ * @param   {string} [req.query.routeId] - Filter by Route ID
+ * @param   {number} [req.query.limit] - Max number of results (default 50)
+ */
 router.get("/live", async (req, res) => {
     try {
         const { lat, lng, radius, rtc, routeId } = req.query;
@@ -282,11 +272,12 @@ router.get("/live", async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/locations/live/:busId
-// Returns the latest known position of a single bus.
-// TTL 5 s — keyed on busId only (no query params on this endpoint).
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * @route   GET /api/locations/live/:busId
+ * @desc    Returns the latest known position of a single bus.
+ * @access  Public
+ * @param   {string} req.params.busId - Bus ID (Path)
+ */
 router.get("/live/:busId", async (req, res) => {
     const { busId } = req.params;
     if (!mongoose.isValidObjectId(busId)) {
