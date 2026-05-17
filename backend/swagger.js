@@ -7,10 +7,6 @@ const doc = {
   },
   servers: [
     {
-      url: 'http://localhost:5000',
-      description: 'Local development server'
-    },
-    {
       url: 'https://busnirikshanapi.mauliksharma.org',
       description: 'Production server'
     }
