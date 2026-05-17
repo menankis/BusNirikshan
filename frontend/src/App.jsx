@@ -7,6 +7,7 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 
 /* Dashboards */
 import PassengerDashboard from './pages/passenger/PassengerDashboard'
+import AdminDashboard from './pages/admin/AdminDashboard'
 //import DriverDashboard from './pages/dashboard/DriverDashboard'
 
 /* Context */
@@ -27,7 +28,8 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<PassengerDashboard />} />
+          <Route path="/passenger" element={<PassengerDashboard />} />
+          <Route path="/admin" element = {<AdminDashboard />} />
 
           {/*
           TEMPORARILY DISABLED
