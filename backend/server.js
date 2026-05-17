@@ -5,8 +5,8 @@ const cors = require("cors");
 const morgan = require("morgan");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
-const swaggerUi = require("swagger-ui-express");
-const fs = require("fs");
+// const swaggerUi = require("swagger-ui-express");
+// const fs = require("fs");
 
 const authRoutes     = require("./routes/auth");
 const userRoutes     = require("./routes/user");
@@ -54,11 +54,11 @@ app.use("/api/locations", authorise, userApiLimiter, locationSseRoutes);
 app.use("/api/notifications", authorise, notificationLimiter, notificationRoutes);
 app.ws("/api/locations/livewebsocket", locationWsHandler);
 
-// ── Swagger Documentation ─────────────────────────────────────────────────────
-if (fs.existsSync("./swagger-output.json")) {
-  const swaggerDocument = require("./swagger-output.json");
-  app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-}
+// // ── Swagger Documentation ─────────────────────────────────────────────────────
+// if (fs.existsSync("./swagger-output.json")) {
+//   const swaggerDocument = require("./swagger-output.json");
+//   app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// }
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/", (req, res) => res.send("BusNirikshan API is running"));
