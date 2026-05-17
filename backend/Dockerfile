@@ -27,5 +27,5 @@ COPY . .
 USER appuser
 
 EXPOSE 5000
-
+RUN ["npm", "run", "swagger"]
 CMD ["npm", "start"]

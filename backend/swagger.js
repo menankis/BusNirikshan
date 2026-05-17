@@ -11,7 +11,7 @@ const doc = {
       description: 'Local development server'
     },
     {
-      url: 'https://busnirikshan.mauliksharma.org',
+      url: 'https://busnirikshanapi.mauliksharma.org',
       description: 'Production server'
     }
   ],
