@@ -3,6 +3,9 @@ backend/.env
 
 node_modules
 .env
+*env*
+
+.codex*
 
 frontend/node_modules
 frontend/.env

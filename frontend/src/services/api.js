@@ -47,7 +47,19 @@ export const locationService = {
   getActiveBuses: () => request('/api/locations/live'),
   getBusLocation: (busId) => request(`/api/locations/${busId}`),
   getBusHistory: (busId, from, to) =>
-    request(`/api/locations/${busId}/history?from=${from}&to=${to}`),
+    request(`/api/analytics/bus/${busId}/trail?from=${from}&to=${to}`),
+}
+
+export const analyticsService = {
+  getBusTrail: (busId, from, to) =>
+    request(`/api/analytics/bus/${busId}/trail?from=${from}&to=${to}`),
+  getBusSummary: (busId, from, to) =>
+    request(`/api/analytics/bus/${busId}/summary?from=${from}&to=${to}`),
+  getBusSpeed: (busId, from, to, interval = 'hour') =>
+    request(`/api/analytics/bus/${busId}/speed?from=${from}&to=${to}&interval=${interval}`),
+  getStopTraffic: (stopId, from, to) =>
+    request(`/api/analytics/stops/${stopId}/traffic?from=${from}&to=${to}`),
+  getActiveBusStats: () => request('/api/analytics/system/active-buses'),
 }
 
 export const etaService = {

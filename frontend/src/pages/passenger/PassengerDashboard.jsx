@@ -4,7 +4,7 @@ import { LiveMap } from '../../components/map/LiveMap';
 import { BusCard } from '../../components/bus/BusCard';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useGeolocation } from '../../hooks/useGeolocation';
-import { stopsService, busesService, etaService, locationService } from '../../services/api';
+import { stopsService, busesService, etaService, locationService, analyticsService } from '../../services/api';
 import styles from './PassengerDashboard.module.css';
 
 export default function PassengerDashboard() {
@@ -20,6 +20,12 @@ export default function PassengerDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('buses');
   const [loading, setLoading] = useState(true);
+  const [historyHours, setHistoryHours] = useState(1);
+  const [historyTrail, setHistoryTrail] = useState([]);
+  const [historyBus, setHistoryBus] = useState(null);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
   // Load buses and stops on mount
   useEffect(() => {
@@ -75,6 +81,31 @@ export default function PassengerDashboard() {
     setSelectedBus(prev => prev === busId ? null : busId);
   }, []);
 
+  const loadBusHistory = useCallback(async () => {
+    if (!selectedBus) {
+      setHistoryError('Select a bus first');
+      return;
+    }
+    const to = Date.now();
+    const from = to - Number(historyHours) * 60 * 60 * 1000;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const data = await analyticsService.getBusTrail(selectedBus, from, to);
+      const trail = data.trail || [];
+      setHistoryTrail(trail);
+      setHistoryBus(data.bus || null);
+      setHistoryIndex(Math.max(0, trail.length - 1));
+      if (trail.length === 0) setHistoryError('No recorded points found for this range');
+    } catch (err) {
+      setHistoryTrail([]);
+      setHistoryBus(null);
+      setHistoryError(err.message || 'Could not load bus history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyHours, selectedBus]);
+
   const displayedStops = selectedStop ? [selectedStop] : nearbyStops.slice(0, 6);
 
   return (
@@ -108,6 +139,9 @@ export default function PassengerDashboard() {
             </button>
             <button className={`${styles.tab} ${activeTab === 'stops' ? styles.tabActive : ''}`} onClick={() => setActiveTab('stops')}>
               Nearby Stops
+            </button>
+            <button className={`${styles.tab} ${activeTab === 'history' ? styles.tabActive : ''}`} onClick={() => setActiveTab('history')}>
+              History
             </button>
           </div>
 
@@ -166,6 +200,52 @@ export default function PassengerDashboard() {
                 )}
               </>
             )}
+
+            {activeTab === 'history' && (
+              <div className={styles.historyPanel}>
+                <div className={styles.historyMeta}>
+                  <span>Selected bus</span>
+                  <strong>{historyBus?.registrationNumber || selectedBus?.slice(-6) || 'None'}</strong>
+                </div>
+                <label className={styles.historyLabel}>
+                  Time range
+                  <select
+                    className={styles.historySelect}
+                    value={historyHours}
+                    onChange={e => setHistoryHours(e.target.value)}
+                  >
+                    <option value="1">Last 1 hour</option>
+                    <option value="3">Last 3 hours</option>
+                    <option value="6">Last 6 hours</option>
+                    <option value="12">Last 12 hours</option>
+                    <option value="24">Last 24 hours</option>
+                  </select>
+                </label>
+                <button className={styles.historyBtn} onClick={loadBusHistory} disabled={historyLoading}>
+                  {historyLoading ? 'Loading trail...' : 'Load path replay'}
+                </button>
+                {historyTrail.length > 0 && (
+                  <>
+                    <div className={styles.historyMeta}>
+                      <span>Recorded points</span>
+                      <strong>{historyTrail.length}</strong>
+                    </div>
+                    <input
+                      className={styles.historyRange}
+                      type="range"
+                      min="0"
+                      max={historyTrail.length - 1}
+                      value={historyIndex}
+                      onChange={e => setHistoryIndex(Number(e.target.value))}
+                    />
+                    <div className={styles.historyTime}>
+                      {new Date(historyTrail[historyIndex]?.timestamp).toLocaleString()}
+                    </div>
+                  </>
+                )}
+                {historyError && <div className={styles.historyError}>{historyError}</div>}
+              </div>
+            )}
           </div>
         </aside>
 
@@ -177,6 +257,8 @@ export default function PassengerDashboard() {
             userPosition={userPosition}
             selectedBus={selectedBus}
             onBusClick={handleBusClick}
+            replayTrail={historyTrail}
+            replayIndex={historyIndex}
           />
 
           {/* Floating stats */}

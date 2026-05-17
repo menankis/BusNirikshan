@@ -13,16 +13,32 @@ dotenv.config();
  *   SMTP_USER  — SMTP login username / sender address
  *   SMTP_PASS  — SMTP login password
  */
-const transporter = nodemailer.createTransport({
+
+
+const DEV_SKIP_EMAIL = process.env.DEV_SKIP_EMAIL === "true";
+
+let transporter;
+if (DEV_SKIP_EMAIL) {
+  // Dummy transporter that pretends to send email successfully
+  transporter = {
+    verify: async () => true,
+    sendMail: async (options) => {
+      console.log("[DEV] Skipping email send. Would have sent:", options);
+      return { response: "250 Message accepted (dev)" };
+    }
+  };
+} else {
+  transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT, 10),
     pool: true,
     maxConnections: 5,
     secure: process.env.SMTP_AUTH === "true",
     auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
     },
-});
+  });
+}
 
 module.exports = { transporter };

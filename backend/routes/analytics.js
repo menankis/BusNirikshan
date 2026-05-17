@@ -43,7 +43,7 @@ router.get("/bus/:busId/trail", async (req, res) => {
 
     const trail = await BusLocation.find(
       { busId, timestamp: { $gte: fromDate, $lte: toDate } },
-      "location timestamp speed_kmh heading_deg"
+      "coordinates timestamp speed_kmh heading_deg"
     )
       .sort({ timestamp: 1 })
       .lean();
@@ -54,7 +54,14 @@ router.get("/bus/:busId/trail", async (req, res) => {
       from: fromDate,
       to: toDate,
       totalPoints: trail.length,
-      trail,
+      trail: trail.map((point) => ({
+        id: point._id,
+        latitude: point.coordinates?.lat,
+        longitude: point.coordinates?.lng,
+        timestamp: point.timestamp,
+        speed_kmh: point.speed_kmh,
+        heading_deg: point.heading_deg,
+      })).filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude)),
     });
   } catch (err) {
     console.error("[GET /analytics/bus/:busId/trail]", err);
@@ -179,25 +186,24 @@ router.get("/stops/:stopId/traffic", async (req, res) => {
 
     const [lng, lat] = stop.location.coordinates;
     const PROXIMITY_METERS = 200;
-    const radiusRadians = PROXIMITY_METERS / 6378100;
 
-    const count = await BusLocation.countDocuments({
+    const nearbyLocations = await BusLocation.find({
       timestamp: { $gte: fromDate, $lte: toDate },
-      location: {
-        $geoWithin: {
-          $centerSphere: [[lng, lat], radiusRadians],
-        },
-      },
+      "coordinates.lat": { $gte: lat - 0.02, $lte: lat + 0.02 },
+      "coordinates.lng": { $gte: lng - 0.02, $lte: lng + 0.02 },
+    }, "busId coordinates").lean();
+
+    const closeLocations = nearbyLocations.filter((point) => {
+      const dLat = (point.coordinates.lat - lat) * Math.PI / 180;
+      const dLng = (point.coordinates.lng - lng) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(lat * Math.PI / 180)
+        * Math.cos(point.coordinates.lat * Math.PI / 180)
+        * Math.sin(dLng / 2) ** 2;
+      return 6378100 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= PROXIMITY_METERS;
     });
 
-    const uniqueBuses = await BusLocation.distinct("busId", {
-      timestamp: { $gte: fromDate, $lte: toDate },
-      location: {
-        $geoWithin: {
-          $centerSphere: [[lng, lat], radiusRadians],
-        },
-      },
-    });
+    const uniqueBuses = [...new Set(closeLocations.map((point) => point.busId.toString()))];
 
     return res.status(200).json({
       message: "Stop traffic fetched successfully",
@@ -205,7 +211,7 @@ router.get("/stops/:stopId/traffic", async (req, res) => {
       from: fromDate,
       to: toDate,
       proximityMeters: PROXIMITY_METERS,
-      totalPings: count,
+      totalPings: closeLocations.length,
       uniqueBusCount: uniqueBuses.length,
       uniqueBusIds: uniqueBuses,
     });

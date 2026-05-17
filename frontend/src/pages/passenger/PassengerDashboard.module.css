@@ -206,6 +206,86 @@
   color: #7B92B2;
 }
 
+.historyPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(17,34,64,0.55);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+}
+
+.historyMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: #7B92B2;
+}
+
+.historyMeta strong {
+  color: #F0F4FF;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.historyLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #A8BFDB;
+}
+
+.historySelect {
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: #F0F4FF;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+}
+
+.historySelect option { background: #112240; }
+
+.historyBtn {
+  padding: 11px 12px;
+  background: #FF6B2C;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.historyBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.historyRange {
+  width: 100%;
+  accent-color: #06D6A0;
+}
+
+.historyTime {
+  font-size: 12px;
+  color: #06D6A0;
+}
+
+.historyError {
+  padding: 10px 12px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 10px;
+  color: #FCA5A5;
+  font-size: 12px;
+}
+
 /* Skeleton */
 .skeleton {
   height: 88px;

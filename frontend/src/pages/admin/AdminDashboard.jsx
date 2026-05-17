@@ -28,6 +28,7 @@ const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: '▦' },
   { id: 'users', label: 'Users', icon: '👥' },
   { id: 'buses', label: 'Buses', icon: '🚌' },
+  { id: 'analytics', label: 'Analytics', icon: 'A' },
   { id: 'routes', label: 'Routes', icon: '🗺️' },
   { id: 'stops', label: 'Stops', icon: '📍' },
   { id: 'drivers', label: 'Drivers', icon: '👨‍✈️' },
@@ -109,6 +110,7 @@ export default function AdminDashboard() {
           {activeSection === 'overview' && <OverviewSection />}
           {activeSection === 'users' && <UsersSection />}
           {activeSection === 'buses' && <BusesSection />}
+          {activeSection === 'analytics' && <AnalyticsSection />}
           {activeSection === 'routes' && <RoutesSection />}
           {activeSection === 'stops' && <StopsSection />}
           {activeSection === 'drivers' && <DriversSection />}
@@ -144,7 +146,7 @@ function OverviewSection() {
         routes: routes.value?.total ?? routes.value?.count ?? '—',
         stops: stops.value?.total ?? stops.value?.count ?? '—',
         drivers: drivers.value?.total ?? drivers.value?.count ?? '—',
-        activeBuses: active.value?.count ?? active.value?.activeBuses ?? '—',
+        activeBuses: active.value?.summary?.totalActive ?? active.value?.count ?? active.value?.activeBuses ?? '—',
       });
       setLoading(false);
     }
@@ -345,6 +347,142 @@ function BusesSection() {
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────
+
+function AnalyticsSection() {
+  const [buses, setBuses] = useState([]);
+  const [selectedBus, setSelectedBus] = useState('');
+  const [rangeHours, setRangeHours] = useState('24');
+  const [systemStats, setSystemStats] = useState(null);
+  const [busSummary, setBusSummary] = useState(null);
+  const [speedStats, setSpeedStats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function loadInitial() {
+      setLoading(true);
+      setError('');
+      try {
+        const [busData, activeData] = await Promise.all([
+          apiRequest('/api/buses?limit=100'),
+          apiRequest('/api/analytics/system/active-buses'),
+        ]);
+        const loadedBuses = busData.buses || busData || [];
+        setBuses(loadedBuses);
+        setSelectedBus(loadedBuses[0]?._id || '');
+        setSystemStats(activeData);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadInitial();
+  }, []);
+
+  const loadBusAnalytics = useCallback(async () => {
+    if (!selectedBus) return;
+    setLoading(true);
+    setError('');
+    const to = Date.now();
+    const from = to - Number(rangeHours) * 60 * 60 * 1000;
+    try {
+      const [summaryData, speedData] = await Promise.all([
+        apiRequest(`/api/analytics/bus/${selectedBus}/summary?from=${from}&to=${to}`),
+        apiRequest(`/api/analytics/bus/${selectedBus}/speed?from=${from}&to=${to}&interval=hour`),
+      ]);
+      setBusSummary(summaryData);
+      setSpeedStats(speedData.stats || []);
+    } catch (err) {
+      setError(err.message);
+      setBusSummary(null);
+      setSpeedStats([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [rangeHours, selectedBus]);
+
+  useEffect(() => { loadBusAnalytics(); }, [loadBusAnalytics]);
+
+  const summary = systemStats?.summary || {};
+  const bus = busSummary?.bus || {};
+  const metrics = [
+    { label: 'Active buses', value: summary.totalActive ?? '-' },
+    { label: 'Inactive buses', value: summary.totalInactive ?? '-' },
+    { label: 'GPS pings', value: busSummary?.summary?.totalPings ?? '-' },
+    { label: 'Avg speed', value: `${busSummary?.summary?.avgSpeed_kmh ?? 0} km/h` },
+  ];
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionToolbar}>
+        <select className={styles.filterSelect} value={selectedBus} onChange={e => setSelectedBus(e.target.value)}>
+          {buses.map(bus => (
+            <option key={bus._id} value={bus._id}>{bus.registrationNumber || bus._id}</option>
+          ))}
+        </select>
+        <select className={styles.filterSelect} value={rangeHours} onChange={e => setRangeHours(e.target.value)}>
+          <option value="1">Last 1 hour</option>
+          <option value="6">Last 6 hours</option>
+          <option value="12">Last 12 hours</option>
+          <option value="24">Last 24 hours</option>
+        </select>
+        <button className={styles.refreshBtn} onClick={loadBusAnalytics} disabled={loading}>
+          {loading ? 'Loading...' : 'Refresh'}
+        </button>
+      </div>
+
+      {error && <div className={styles.errorBox}>{error}</div>}
+
+      <div className={styles.overviewGrid}>
+        {metrics.map(metric => (
+          <div key={metric.label} className={`${styles.statCard} ${styles.stat_blue}`}>
+            <div>
+              <p className={styles.statValue}>{loading ? '...' : metric.value}</p>
+              <p className={styles.statLabel}>{metric.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.rawBox}>
+        <p className={styles.rawTitle}>
+          {bus.registrationNumber ? `${bus.registrationNumber} speed by hour` : 'Speed by hour'}
+        </p>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Avg</th>
+              <th>Max</th>
+              <th>Min</th>
+              <th>Readings</th>
+            </tr>
+          </thead>
+          <tbody>
+            {speedStats.length === 0 ? (
+              <tr><td colSpan={5} className={styles.loadingRow}>No speed data for this range</td></tr>
+            ) : speedStats.map((row, index) => (
+              <tr key={index}>
+                <td>{formatPeriod(row.period)}</td>
+                <td>{row.avgSpeed_kmh} km/h</td>
+                <td>{row.maxSpeed_kmh} km/h</td>
+                <td>{row.minSpeed_kmh} km/h</td>
+                <td>{row.readings}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function formatPeriod(period) {
+  if (!period) return '-';
+  const hour = period.hour !== undefined ? ` ${String(period.hour).padStart(2, '0')}:00` : '';
+  return `${period.day}/${period.month}/${period.year}${hour}`;
+}
 
 function RoutesSection() {
   const [routes, setRoutes] = useState([]);

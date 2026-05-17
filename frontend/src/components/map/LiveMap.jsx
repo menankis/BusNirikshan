@@ -4,12 +4,14 @@ import styles from './LiveMap.module.css';
 // Leaflet is loaded via CDN script tag in index.html
 // We reference window.L here
 
-export function LiveMap({ busLocations, stops, userPosition, selectedBus, onBusClick }) {
+export function LiveMap({ busLocations, stops, userPosition, selectedBus, onBusClick, replayTrail = [], replayIndex = 0 }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const markersRef = useRef({});
   const stopMarkersRef = useRef([]);
   const userMarkerRef = useRef(null);
+  const replayLineRef = useRef(null);
+  const replayMarkerRef = useRef(null);
 
   // Init map
   useEffect(() => {
@@ -124,6 +126,42 @@ export function LiveMap({ busLocations, stops, userPosition, selectedBus, onBusC
     }
   }, [userPosition]);
 
+  // Historical trail / replay marker
+  useEffect(() => {
+    if (!mapInstance.current || !window.L) return;
+    const L = window.L;
+    const points = replayTrail
+      .map(point => [point.latitude ?? point.coordinates?.lat, point.longitude ?? point.coordinates?.lng])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+
+    if (replayLineRef.current) {
+      mapInstance.current.removeLayer(replayLineRef.current);
+      replayLineRef.current = null;
+    }
+    if (replayMarkerRef.current) {
+      mapInstance.current.removeLayer(replayMarkerRef.current);
+      replayMarkerRef.current = null;
+    }
+    if (points.length === 0) return;
+
+    replayLineRef.current = L.polyline(points, {
+      color: '#06D6A0',
+      weight: 4,
+      opacity: 0.85,
+      lineCap: 'round',
+    }).addTo(mapInstance.current);
+
+    const activePoint = points[Math.min(Math.max(replayIndex, 0), points.length - 1)];
+    const icon = L.divIcon({
+      className: '',
+      html: '<div class="replay-marker"></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+    replayMarkerRef.current = L.marker(activePoint, { icon }).addTo(mapInstance.current);
+    mapInstance.current.fitBounds(replayLineRef.current.getBounds(), { padding: [40, 40] });
+  }, [replayTrail, replayIndex]);
+
   return (
     <div className={styles.mapWrap}>
       <div ref={mapRef} className={styles.map} />
@@ -135,6 +173,7 @@ export function LiveMap({ busLocations, stops, userPosition, selectedBus, onBusC
         .user-marker { position: relative; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
         .user-dot { width: 12px; height: 12px; background: #378ADD; border-radius: 50%; border: 2px solid white; position: absolute; z-index: 2; }
         .user-pulse { width: 30px; height: 30px; background: rgba(55,138,221,0.3); border-radius: 50%; position: absolute; animation: userPulse 2s ease-out infinite; }
+        .replay-marker { width: 18px; height: 18px; border-radius: 50%; background: #06D6A0; border: 3px solid white; box-shadow: 0 0 0 6px rgba(6,214,160,0.22), 0 4px 12px rgba(0,0,0,0.5); }
         @keyframes userPulse { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
         .leaflet-tile-pane { filter: brightness(0.85) saturate(0.7) hue-rotate(180deg) invert(1) hue-rotate(180deg); }
       `}</style>

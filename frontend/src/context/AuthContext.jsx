@@ -47,6 +47,18 @@ export function AuthProvider({ children }) {
     clearToken()
   }, [])
 
+  const setDevToken = useCallback(() => {
+    const devToken = "dev." + btoa(JSON.stringify({
+      userId: "dev",
+      name: "Dev User",
+      email: "dev@local.test",
+      role: "admin",
+      isActive: true
+    })) + ".dev"
+    saveToken(devToken)
+    window.location.href = "/dashboard"
+  }, [])
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -56,6 +68,7 @@ export function AuthProvider({ children }) {
       registerVerify,
       login,
       logout,
+      setDevToken,
     }}>
       {children}
     </AuthContext.Provider>

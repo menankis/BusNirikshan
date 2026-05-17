@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import OtpVerifyPage from './pages/auth/OtpVerifyPage'
 import PassengerDashboard from './pages/passenger/PassengerDashboard'
 import DriverDashboard from './pages/driver/DriverDashboard'
 import './index.css'
@@ -38,6 +39,9 @@ export default function App() {
           <Route path="/register" element={
             <GuestRoute><RegisterPage /></GuestRoute>
           } />
+          <Route path="/verify-otp" element={
+            <GuestRoute><OtpVerifyPage /></GuestRoute>
+          } />
           <Route path="/forgot-password" element={
             <ForgotPasswordPage />
           } />
@@ -53,9 +57,9 @@ export default function App() {
           <Route path="/admin" element={
             <ProtectedRoute><AdminDashboard /></ProtectedRoute>
           } />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

@@ -1,4 +1,16 @@
-require("dotenv").config();
+const path = require("path");
+const fs = require("fs");
+
+const envInCwd = path.join(process.cwd(), ".env");
+const envInParent = path.join(__dirname, "../.env");
+
+if (fs.existsSync(envInCwd)) {
+  require("dotenv").config({ path: envInCwd });
+} else if (fs.existsSync(envInParent)) {
+  require("dotenv").config({ path: envInParent });
+} else {
+  require("dotenv").config();
+}
 const express = require("express");
 const expressWs = require("express-ws");
 const cors = require("cors");

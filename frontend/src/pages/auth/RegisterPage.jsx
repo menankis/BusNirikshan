@@ -59,7 +59,9 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await registerInit(form);
-      setStep(2); // move to OTP entry
+      navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
+        state: { email: form.email },
+      });
     } catch (err) {
       setServerError(err.message || 'Registration failed. Try again.');
     } finally {

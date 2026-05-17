@@ -3,6 +3,18 @@ const jwt = require("jsonwebtoken");
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
 const authorise = (req, res, next) => {
+    if (process.env.DEV_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production") {
+        req.user = {
+            userId: process.env.DEV_USER_ID,
+            name: "Dev User",
+            email: "dev@local.test",
+            role: process.env.DEV_ROLE || "admin",
+            rtc: null,
+            isActive: true,
+        };
+        return next();
+    }
+
     try {
         const authHeader = req.headers.authorization || req.headers.Authorization;
         if (!authHeader?.startsWith("Bearer ")) {
