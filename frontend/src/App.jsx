@@ -8,7 +8,7 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
 /* Dashboards */
 import PassengerDashboard from './pages/passenger/PassengerDashboard'
 import AdminDashboard from './pages/admin/AdminDashboard'
-//import DriverDashboard from './pages/dashboard/DriverDashboard'
+import DriverDashboard from './pages/driver/DriverDashboard'
 
 /* Context */
 import { AuthProvider } from './context/AuthContext'
@@ -31,16 +31,8 @@ function App() {
           <Route path="/passenger" element={<PassengerDashboard />} />
           <Route path="/admin" element = {<AdminDashboard />} />
 
-          {/*
-          TEMPORARILY DISABLED
-          Re-enable after frontend stabilizes
-          */}
-          {/*
-          <Route
-            path="/driver"
-            element={<DriverDashboard />}
-          />
-          */}
+          {/* Driver Dashboard */}
+          <Route path="/driver" element={<DriverDashboard />} />
 
           {/* Fallback */}
           <Route
