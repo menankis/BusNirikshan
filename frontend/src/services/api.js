@@ -74,13 +74,14 @@ export const routesService = {
 
 export const driversService = {
   getMyProfile: () => request('/api/drivers/me'),
-  
-  startShift: (busId, routeId) =>
-    request('/api/drivers/me/shift/start', {
+  getById: (driverId) => request(`/api/drivers/${driverId}`),
+
+  startShift: (driverId, busId, routeId) =>
+    request(`/api/drivers/${driverId}/shift/start`, {
       method: 'POST',
       body: JSON.stringify({ busId, routeId }),
     }),
 
-  endShift: () =>
-    request('/api/drivers/me/shift/end', { method: 'POST' }),
+  endShift: (driverId) =>
+    request(`/api/drivers/${driverId}/shift/end`, { method: 'POST' }),
 }

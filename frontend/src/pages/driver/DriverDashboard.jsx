@@ -16,6 +16,7 @@ export default function DriverDashboard() {
   const { position, error: geoError, loading: geoLoading } = useGeolocation();
 
   const [shift, setShift] = useState(null);
+  const [driverId, setDriverId] = useState('');
   const [buses, setBuses] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [selectedBus, setSelectedBus] = useState('');
@@ -43,7 +44,9 @@ export default function DriverDashboard() {
       driversService.getMyProfile()
         .then(data => {
           setProfileError('');
-          if (data?.currentShift) setShift(data.currentShift);
+          const driver = data?.driver || data;
+          if (driver?._id) setDriverId(driver._id);
+          if (driver?.currentShift) setShift(driver.currentShift);
         })
         .catch(e => setProfileError(e.message || 'Could not load driver profile'));
     }
@@ -101,10 +104,10 @@ export default function DriverDashboard() {
   }, [shift, position, pushLocation]);
 
   async function startShift() {
-    if (!selectedBus || !selectedRoute) return;
+    if (!selectedBus || !selectedRoute || !driverId) return;
     setShiftLoading(true);
     try {
-      const data = await driversService.startShift(selectedBus, selectedRoute);
+      const data = await driversService.startShift(driverId, selectedBus, selectedRoute);
       setShift(data.shift || data);
       setUpdateLog([]);
       setTotalUpdates(0);
@@ -117,9 +120,10 @@ export default function DriverDashboard() {
   }
 
   async function endShift() {
+    if (!driverId) return;
     setShiftLoading(true);
     try {
-      await driversService.endShift();
+      await driversService.endShift(driverId);
       setShift(null);
       clearInterval(intervalRef.current);
       clearInterval(countdownRef.current);
@@ -143,7 +147,7 @@ export default function DriverDashboard() {
     ? buses.filter(bus => (bus.routeId?._id || bus.routeId)?.toString() === selectedRoute)
     : buses;
   const selectedBusData = buses.find(bus => bus._id === selectedBus);
-  const canStartShift = selectedBus && selectedRoute && !selectedBusData?.isActive && !shiftLoading && !profileError;
+  const canStartShift = selectedBus && selectedRoute && driverId && !selectedBusData?.isActive && !shiftLoading && !profileError;
 
   return (
     <div className={styles.page}>
