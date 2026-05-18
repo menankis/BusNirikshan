@@ -79,7 +79,7 @@ router.patch("/users/:userId/role", async (req, res) => {
     }
 
     // prevent admin from demoting themselves
-    if (req.user._id.toString() === userId && role !== "admin") {
+    if (req.user.userId === userId && role !== "admin") {
       return res.status(400).json({ message: "You cannot change your own role" });
     }
 
@@ -136,8 +136,10 @@ router.get("/system/health", async (req, res) => {
     health.status = "degraded";
   }
 
-  const httpStatus = health.status === "ok" ? 200 : 503;
-  return res.status(httpStatus).json(health);
+  health.mongodb = health.services.mongodb.status;
+  health.redis = health.services.redis.status;
+
+  return res.status(200).json(health);
 });
 
 /**
