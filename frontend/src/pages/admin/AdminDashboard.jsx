@@ -99,6 +99,7 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
+
       {/* ── Main ── */}
       <main className={styles.main}>
         {/* Top bar */}
@@ -147,11 +148,11 @@ function OverviewSection() {
       ]);
 
       setStats({
-        users: users.value?.total ?? users.value?.count ?? '—',
-        buses: buses.value?.total ?? buses.value?.count ?? '—',
-        routes: routes.value?.total ?? routes.value?.count ?? '—',
-        stops: stops.value?.total ?? stops.value?.count ?? '—',
-        drivers: drivers.value?.total ?? drivers.value?.count ?? '—',
+        users: users.value?.pagination?.total ?? users.value?.total ?? users.value?.count ?? '—',
+        buses: buses.value?.pagination?.total ?? buses.value?.total ?? buses.value?.count ?? '—',
+        routes: routes.value?.pagination?.total ?? routes.value?.total ?? routes.value?.count ?? '—',
+        stops: stops.value?.pagination?.total ?? stops.value?.total ?? stops.value?.count ?? '—',
+        drivers: drivers.value?.pagination?.total ?? drivers.value?.total ?? drivers.value?.count ?? '—',
         activeBuses: active.value?.summary?.totalActive ?? active.value?.count ?? active.value?.activeBuses ?? '—',
       });
       setLoading(false);
