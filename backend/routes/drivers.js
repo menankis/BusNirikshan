@@ -15,31 +15,6 @@ const CACHE_TTL = {
   DETAIL: 60,
 };
 
-async function findDriverForUser(userId) {
-  return Driver.findOne({ userId })
-    .populate("userId", "name email")
-    .populate("assignedBusId", "registrationNumber routeName isActive")
-    .lean();
-}
-
-async function getActiveShift(driverId) {
-  return Shift.findOne({ driverId, endedAt: null }).sort({ startedAt: -1 }).lean();
-}
-
-function formatCurrentShift(driver, activeShift) {
-  if (!driver?.isOnShift || !driver.assignedBusId) return null;
-
-  const bus = driver.assignedBusId;
-  const busId = bus?._id?.toString?.() || bus?.toString?.();
-
-  return {
-    shiftId: activeShift?._id ?? null,
-    busId,
-    busNumber: bus?.registrationNumber || busId?.slice(-6),
-    startedAt: activeShift?.startedAt || driver.shiftStartedAt,
-  };
-}
-
 /**
  * @route   GET /api/drivers
  * @desc    Get list of drivers. Supports filtering by ?rtc=X and ?isOnShift=true/false
@@ -92,71 +67,6 @@ router.get("/", requireRole("admin"), async (req, res) => {
   } catch (err) {
     console.error("[GET /drivers]", err);
     return res.status(500).json({ message: "Failed to fetch drivers" });
-  }
-});
-
-/**
- * @route   GET /api/drivers/me
- * @desc    Get the driver profile linked to the authenticated user
- * @access  Private (Driver)
- */
-router.get("/me", requireRole("driver"), async (req, res) => {
-  try {
-    const driver = await findDriverForUser(req.user.userId);
-    if (!driver) {
-      return res.status(404).json({ message: "Driver profile not found for this account" });
-    }
-
-    const activeShift = await getActiveShift(driver._id);
-
-    return res.status(200).json({
-      message: "Driver profile fetched successfully",
-      driver,
-      currentShift: formatCurrentShift(driver, activeShift),
-    });
-  } catch (err) {
-    console.error("[GET /drivers/me]", err);
-    return res.status(500).json({ message: "Failed to fetch driver profile" });
-  }
-});
-
-/**
- * @route   POST /api/drivers/me/shift/start
- * @desc    Authenticated driver starts a shift on a specific bus
- * @access  Private (Driver)
- */
-router.post("/me/shift/start", requireRole("driver"), async (req, res) => {
-  try {
-    const driver = await Driver.findOne({ userId: req.user.userId });
-    if (!driver) {
-      return res.status(404).json({ message: "Driver profile not found for this account" });
-    }
-
-    req.params.driverId = driver._id.toString();
-    return startShiftForDriver(req, res);
-  } catch (err) {
-    console.error("[POST /drivers/me/shift/start]", err);
-    return res.status(500).json({ message: "Failed to start shift" });
-  }
-});
-
-/**
- * @route   POST /api/drivers/me/shift/end
- * @desc    Authenticated driver ends their active shift
- * @access  Private (Driver)
- */
-router.post("/me/shift/end", requireRole("driver"), async (req, res) => {
-  try {
-    const driver = await Driver.findOne({ userId: req.user.userId });
-    if (!driver) {
-      return res.status(404).json({ message: "Driver profile not found for this account" });
-    }
-
-    req.params.driverId = driver._id.toString();
-    return endShiftForDriver(req, res);
-  } catch (err) {
-    console.error("[POST /drivers/me/shift/end]", err);
-    return res.status(500).json({ message: "Failed to end shift" });
   }
 });
 
@@ -325,19 +235,16 @@ router.delete("/:driverId", requireRole("admin"), async (req, res) => {
  * @param   {string} req.params.driverId - Driver ID (Path)
  * @param   {string} req.body.busId - Bus ID to start shift on
  */
-async function startShiftForDriver(req, res) {
+router.post("/:driverId/shift/start", async (req, res) => {
   try {
     const { driverId } = req.params;
-    const { busId, routeId } = req.body;
+    const { busId } = req.body;
 
     if (!mongoose.isValidObjectId(driverId)) {
       return res.status(400).json({ message: "Invalid driverId" });
     }
     if (!busId || !mongoose.isValidObjectId(busId)) {
       return res.status(400).json({ message: "Valid busId is required in body" });
-    }
-    if (routeId && !mongoose.isValidObjectId(routeId)) {
-      return res.status(400).json({ message: "Invalid routeId" });
     }
 
     const [driver, bus] = await Promise.all([
@@ -347,15 +254,9 @@ async function startShiftForDriver(req, res) {
 
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     if (!bus) return res.status(404).json({ message: "Bus not found" });
-    if (routeId && bus.routeId?.toString() !== routeId) {
-      return res.status(400).json({ message: "Selected bus does not belong to the selected route" });
-    }
 
     if (driver.isOnShift) {
       return res.status(400).json({ message: "Driver is already on shift. End the current shift first." });
-    }
-    if (bus.isActive) {
-      return res.status(409).json({ message: "This bus is already active. Select an inactive bus." });
     }
 
     // Prevent two drivers running the same bus simultaneously
@@ -402,9 +303,7 @@ async function startShiftForDriver(req, res) {
     console.error("[POST /drivers/:driverId/shift/start]", err);
     return res.status(500).json({ message: "Failed to start shift" });
   }
-}
-
-router.post("/:driverId/shift/start", startShiftForDriver);
+});
 
 /**
  * @route   POST /api/drivers/:driverId/shift/end
@@ -412,7 +311,7 @@ router.post("/:driverId/shift/start", startShiftForDriver);
  * @access  Private
  * @param   {string} req.params.driverId - Driver ID (Path)
  */
-async function endShiftForDriver(req, res) {
+router.post("/:driverId/shift/end", async (req, res) => {
   try {
     const { driverId } = req.params;
 
@@ -469,9 +368,7 @@ async function endShiftForDriver(req, res) {
     console.error("[POST /drivers/:driverId/shift/end]", err);
     return res.status(500).json({ message: "Failed to end shift" });
   }
-}
-
-router.post("/:driverId/shift/end", endShiftForDriver);
+});
 
 /**
  * @route   GET /api/drivers/:driverId/shifts

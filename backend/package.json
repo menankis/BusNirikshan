@@ -20,7 +20,6 @@
     "restart": "pm2 restart server.js",
     "logs": "pm2 logs",
     "swagger": "node swagger.js",
-    "seed:demo": "node scripts/seedDemo.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

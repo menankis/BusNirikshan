@@ -3,9 +3,7 @@ const jwt = require("jsonwebtoken");
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
 const authorise = (req, res, next) => {
-    const authHeader = req.headers.authorization || req.headers.Authorization;
-
-    if (process.env.DEV_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production" && !authHeader?.startsWith("Bearer ")) {
+    if (process.env.DEV_BYPASS_AUTH === "true" && process.env.NODE_ENV !== "production") {
         req.user = {
             userId: process.env.DEV_USER_ID,
             name: "Dev User",
@@ -18,6 +16,7 @@ const authorise = (req, res, next) => {
     }
 
     try {
+        const authHeader = req.headers.authorization || req.headers.Authorization;
         if (!authHeader?.startsWith("Bearer ")) {
             return res.status(401).json({ message: "Unauthorized: No token provided" });
         }

@@ -4,7 +4,6 @@ const jwt = require("jsonwebtoken");
 const { accountLimiter, forgotPasswordLimiter, otpLimiter, refreshLimiter } = require("../middleware/rateLimiters");
 
 const User = require("../models/user");
-const Driver = require("../models/driver");
 const RefreshToken = require("../models/refreshtoken");
 const PasswordResetToken = require("../models/passwordresettoken");
 const OtpToken = require("../models/otptoken");
@@ -18,8 +17,6 @@ const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10) || 10;
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const RESET_TOKEN_SECRET = process.env.RESET_TOKEN_SECRET;
-const VALID_ROLES = ["admin", "driver", "user"];
-const LICENSE_REGEX = /^[A-Z]{2}\d{2}-\d{4,8}$/;
 
 /**
  * @route   POST /api/auth/register/init
@@ -33,24 +30,10 @@ const LICENSE_REGEX = /^[A-Z]{2}\d{2}-\d{4,8}$/;
  */
 router.post("/register/init", otpLimiter, async (req, res) => {
     try {
-        const { name, email, password, role, rtc, licenseNumber } = req.body;
+        const { name, email, password, role, rtc } = req.body;
 
         if (!name || !email || !password || !role) {
             return res.status(400).json({ message: "Name, email, password, and role are required" });
-        }
-        if (!VALID_ROLES.includes(role)) {
-            return res.status(400).json({ message: `Role must be one of: ${VALID_ROLES.join(", ")}` });
-        }
-        if (role === "driver") {
-            if (!rtc) {
-                return res.status(400).json({ message: "RTC is required for driver registration" });
-            }
-            if (!licenseNumber || !LICENSE_REGEX.test(licenseNumber)) {
-                return res.status(400).json({ message: "Invalid license number format. Expected format: GJ01-20240001" });
-            }
-            if (await Driver.findOne({ licenseNumber })) {
-                return res.status(409).json({ message: "License number is already registered" });
-            }
         }
 
         const passwordError = validatePassword(password);
@@ -75,7 +58,7 @@ router.post("/register/init", otpLimiter, async (req, res) => {
         await OtpToken.create({
             email,
             codeHash,
-            pendingData: { name, passwordHash, role, rtc: rtc || null, licenseNumber: licenseNumber || null },
+            pendingData: { name, passwordHash, role, rtc: rtc || null },
             expiresAt: new Date(Date.now() + 10 * 60 * 1000)  // 10 minutes
         });
 
@@ -142,16 +125,8 @@ router.post("/register/verify", otpLimiter, async (req, res) => {
             return res.status(400).json({ message: "User already exists" });
         }
 
-        const { name, passwordHash, role, rtc, licenseNumber } = tokenDoc.pendingData;
-        const user = await User.create({ name, email, passwordHash, role, rtc });
-
-        if (role === "driver") {
-            await Driver.create({
-                userId: user._id,
-                rtc,
-                licenseNumber,
-            });
-        }
+        const { name, passwordHash, role, rtc } = tokenDoc.pendingData;
+        await User.create({ name, email, passwordHash, role, rtc });
 
         res.status(201).json({ message: "Registration successful. You can now log in." });
     } catch (error) {
