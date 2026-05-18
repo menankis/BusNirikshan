@@ -33,8 +33,9 @@ export default function LoginPage() {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setLoading(true);
     try {
-      await login(form.email, form.password);
-      navigate('/passenger');
+      const data = await login(form.email, form.password);
+      const user = parseJwt(data.access_token);
+      navigate(getDashboardPath(user?.role), { replace: true });
     } catch (err) {
       setServerError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -78,6 +79,20 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+function parseJwt(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
+
+function getDashboardPath(role) {
+  if (role === 'driver') return '/driver';
+  if (role === 'admin') return '/admin';
+  return '/passenger';
 }
 
 function BusIcon() {

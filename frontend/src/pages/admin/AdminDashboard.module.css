@@ -303,6 +303,98 @@
 .refreshBtn:hover:not(:disabled) { background: rgba(255,255,255,0.09); }
 .refreshBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.adminForm {
+  background: rgba(17,34,64,0.5);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.formTitle {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #F0F4FF;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #7B92B2;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.formControl {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: #F0F4FF;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+}
+
+.formControl:focus { border-color: rgba(255,107,44,0.4); }
+.formControl::placeholder { color: #566F8F; }
+.formControl option { background: #112240; }
+
+.multiSelect {
+  min-height: 112px;
+}
+
+.checkField {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #A8BFDB;
+  font-size: 13px;
+}
+
+.checkField input {
+  width: 16px;
+  height: 16px;
+  accent-color: #FF6B2C;
+}
+
+.primaryBtn {
+  align-self: flex-start;
+  padding: 10px 16px;
+  background: #FF6B2C;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.primaryBtn:hover:not(:disabled) { background: #E85D22; }
+.primaryBtn:disabled { opacity: 0.55; cursor: not-allowed; }
+
 /* ── Table ── */
 .tableWrap {
   background: rgba(17,34,64,0.5);

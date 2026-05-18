@@ -27,6 +27,7 @@ export default function DriverDashboard() {
   const [distanceCovered, setDistanceCovered] = useState(0);
   const [lastPosition, setLastPosition] = useState(null);
   const [manualLoading, setManualLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
 
   const intervalRef = useRef(null);
   const countdownRef = useRef(null);
@@ -38,12 +39,15 @@ export default function DriverDashboard() {
       if (r.status === 'fulfilled') setRoutes(r.value?.routes || r.value || []);
     });
     // Check if already on shift
-    if (user?.userId) {
-      driversService.getMyProfile(user.userId)
-        .then(data => { if (data?.currentShift) setShift(data.currentShift); })
-        .catch(() => {});
+    if (user?.role === 'driver') {
+      driversService.getMyProfile()
+        .then(data => {
+          setProfileError('');
+          if (data?.currentShift) setShift(data.currentShift);
+        })
+        .catch(e => setProfileError(e.message || 'Could not load driver profile'));
     }
-  }, []);
+  }, [user?.role]);
 
   // Auto location push every 30s when on shift
   const pushLocation = useCallback(async (pos, manual = false) => {
@@ -100,7 +104,7 @@ export default function DriverDashboard() {
     if (!selectedBus || !selectedRoute) return;
     setShiftLoading(true);
     try {
-      const data = await driversService.startShift(user.userId,selectedBus);
+      const data = await driversService.startShift(selectedBus, selectedRoute);
       setShift(data.shift || data);
       setUpdateLog([]);
       setTotalUpdates(0);
@@ -115,7 +119,7 @@ export default function DriverDashboard() {
   async function endShift() {
     setShiftLoading(true);
     try {
-      await driversService.endShift(user.userId);
+      await driversService.endShift();
       setShift(null);
       clearInterval(intervalRef.current);
       clearInterval(countdownRef.current);
@@ -135,6 +139,11 @@ export default function DriverDashboard() {
 
   const onShift = !!shift;
   const busLocation = position ? { [shift?.busId || 'me']: { ...position, timestamp: Date.now() } } : {};
+  const routeBuses = selectedRoute
+    ? buses.filter(bus => (bus.routeId?._id || bus.routeId)?.toString() === selectedRoute)
+    : buses;
+  const selectedBusData = buses.find(bus => bus._id === selectedBus);
+  const canStartShift = selectedBus && selectedRoute && !selectedBusData?.isActive && !shiftLoading && !profileError;
 
   return (
     <div className={styles.page}>
@@ -154,6 +163,11 @@ export default function DriverDashboard() {
             <div className={styles.card}>
               <h2 className={styles.cardTitle}>Start your shift</h2>
               <p className={styles.cardSub}>Select your bus and route to begin broadcasting location.</p>
+              {profileError && (
+                <div className={styles.geoWarn}>
+                  <WarnIcon /> {profileError}
+                </div>
+              )}
 
               <div className={styles.fieldGroup}>
                 <label className={styles.fieldLabel}>Assigned Bus</label>
@@ -163,9 +177,9 @@ export default function DriverDashboard() {
                   onChange={e => setSelectedBus(e.target.value)}
                 >
                   <option value="">Select bus...</option>
-                  {buses.map(b => (
-                    <option key={b._id} value={b._id}>
-                      {b.busNumber || b.registrationNumber || b._id.slice(-6)}
+                  {routeBuses.map(b => (
+                    <option key={b._id} value={b._id} disabled={b.isActive}>
+                      {b.busNumber || b.registrationNumber || b._id.slice(-6)}{b.isActive ? ' (active)' : ''}
                     </option>
                   ))}
                 </select>
@@ -176,7 +190,10 @@ export default function DriverDashboard() {
                 <select
                   className={styles.select}
                   value={selectedRoute}
-                  onChange={e => setSelectedRoute(e.target.value)}
+                  onChange={e => {
+                    setSelectedRoute(e.target.value);
+                    setSelectedBus('');
+                  }}
                 >
                   <option value="">Select route...</option>
                   {routes.map(r => (
@@ -194,7 +211,7 @@ export default function DriverDashboard() {
               <button
                 className={styles.startBtn}
                 onClick={startShift}
-                disabled={!selectedBus || !selectedRoute || shiftLoading || geoLoading}
+                disabled={!canStartShift}
               >
                 {shiftLoading ? 'Starting...' : 'Start shift'}
               </button>

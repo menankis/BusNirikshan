@@ -1,10 +1,17 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Navbar.module.css';
 
 export function Navbar({ role }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login', { replace: true });
+  }
 
   return (
     <nav className={styles.nav}>
@@ -32,7 +39,7 @@ export function Navbar({ role }) {
               <p className={styles.dropEmail}>{user?.email}</p>
             </div>
             <hr className={styles.dropDivider} />
-            <button className={styles.dropItem} onClick={logout}>
+            <button className={styles.dropItem} onClick={handleLogout}>
               <LogoutIcon /> Sign out
             </button>
           </div>

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import styles from './AdminDashboard.module.css';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const RTC_OPTIONS = ['GSRTC', 'MSRTC', 'KSRTC', 'UPSRTC', 'RSRTC', 'TNSTC', 'TSRTC', 'PRTC', 'Other'];
 
 function getToken() {
   return localStorage.getItem('busnirikshan_token');
@@ -40,6 +41,11 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login', { replace: true });
+  }
 
   // Redirect non-admins
   useEffect(() => {
@@ -86,7 +92,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-          <button className={styles.logoutBtn} onClick={logout} title="Sign out">
+          <button className={styles.logoutBtn} onClick={handleLogout} title="Sign out">
             <LogoutIcon />
             {sidebarOpen && <span>Sign out</span>}
           </button>
@@ -236,7 +242,7 @@ function UsersSection() {
         />
         <select className={styles.filterSelect} value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
           <option value="">All roles</option>
-          <option value="passenger">Passenger</option>
+          <option value="user">Passenger</option>
           <option value="driver">Driver</option>
           <option value="admin">Admin</option>
         </select>
@@ -279,7 +285,7 @@ function UsersSection() {
                     disabled={updating === u._id}
                     onChange={e => changeRole(u._id, e.target.value)}
                   >
-                    <option value="passenger">Passenger</option>
+                    <option value="user">Passenger</option>
                     <option value="driver">Driver</option>
                     <option value="admin">Admin</option>
                   </select>
@@ -297,18 +303,124 @@ function UsersSection() {
 
 function BusesSection() {
   const [buses, setBuses] = useState([]);
+  const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    routeId: '',
+    registrationNumber: '',
+    capacity: '',
+    isActive: false,
+  });
 
-  useEffect(() => {
-    apiRequest('/api/buses?limit=50')
-      .then(d => setBuses(d.buses || d || []))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [busData, routeData] = await Promise.all([
+        apiRequest('/api/buses?limit=100'),
+        apiRequest('/api/routes?limit=100'),
+      ]);
+      const loadedRoutes = routeData.routes || routeData || [];
+      setBuses(busData.buses || busData || []);
+      setRoutes(loadedRoutes);
+      setForm(prev => ({ ...prev, routeId: prev.routeId || loadedRoutes[0]?._id || '' }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function createBus(e) {
+    e.preventDefault();
+    const route = routes.find(r => r._id === form.routeId);
+    if (!route) {
+      setError('Select a route before adding a bus');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await apiRequest('/api/buses', {
+        method: 'POST',
+        body: JSON.stringify({
+          routeId: route._id,
+          rtc: route.rtc,
+          routeName: route.name,
+          registrationNumber: form.registrationNumber.trim().toUpperCase(),
+          capacity: Number(form.capacity),
+          isActive: form.isActive,
+        }),
+      });
+      setForm(prev => ({ ...prev, registrationNumber: '', capacity: '', isActive: false }));
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className={styles.section}>
+      <form className={styles.adminForm} onSubmit={createBus}>
+        <div className={styles.formHeader}>
+          <p className={styles.formTitle}>Add bus</p>
+        </div>
+        <div className={styles.formGrid}>
+          <label className={styles.formField}>
+            <span>Route</span>
+            <select
+              className={styles.formControl}
+              value={form.routeId}
+              onChange={e => setForm(prev => ({ ...prev, routeId: e.target.value }))}
+              required
+            >
+              <option value="">Select route</option>
+              {routes.map(route => (
+                <option key={route._id} value={route._id}>{route.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.formField}>
+            <span>Registration</span>
+            <input
+              className={styles.formControl}
+              value={form.registrationNumber}
+              onChange={e => setForm(prev => ({ ...prev, registrationNumber: e.target.value }))}
+              placeholder="RJ14-NEW-3001"
+              required
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Capacity</span>
+            <input
+              className={styles.formControl}
+              type="number"
+              min="1"
+              value={form.capacity}
+              onChange={e => setForm(prev => ({ ...prev, capacity: e.target.value }))}
+              placeholder="42"
+              required
+            />
+          </label>
+          <label className={styles.checkField}>
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
+            />
+            Active now
+          </label>
+        </div>
+        <button className={styles.primaryBtn} type="submit" disabled={saving || loading}>
+          {saving ? 'Adding...' : 'Add bus'}
+        </button>
+      </form>
       {error && <div className={styles.errorBox}>{error}</div>}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -486,18 +598,154 @@ function formatPeriod(period) {
 
 function RoutesSection() {
   const [routes, setRoutes] = useState([]);
+  const [stops, setStops] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    name: '',
+    rtc: 'RSRTC',
+    stopIds: [],
+    totalDistanceKm: '',
+    estimatedDurationMin: '',
+    isActive: true,
+  });
 
-  useEffect(() => {
-    apiRequest('/api/routes?limit=50')
-      .then(d => setRoutes(d.routes || d || []))
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [routeData, stopData] = await Promise.all([
+        apiRequest('/api/routes?limit=100'),
+        apiRequest('/api/stops?limit=200'),
+      ]);
+      setRoutes(routeData.routes || routeData || []);
+      setStops(stopData.stops || stopData || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function createRoute(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await apiRequest('/api/routes', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: form.name.trim(),
+          rtc: form.rtc,
+          stopIds: form.stopIds,
+          totalDistanceKm: Number(form.totalDistanceKm),
+          estimatedDurationMin: Number(form.estimatedDurationMin),
+          isActive: form.isActive,
+        }),
+      });
+      setForm(prev => ({
+        ...prev,
+        name: '',
+        stopIds: [],
+        totalDistanceKm: '',
+        estimatedDurationMin: '',
+        isActive: true,
+      }));
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className={styles.section}>
+      <form className={styles.adminForm} onSubmit={createRoute}>
+        <div className={styles.formHeader}>
+          <p className={styles.formTitle}>Add route</p>
+        </div>
+        <div className={styles.formGrid}>
+          <label className={styles.formField}>
+            <span>Name</span>
+            <input
+              className={styles.formControl}
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Jaipur Route J3 - Airport to Ajmeri Gate"
+              required
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>RTC</span>
+            <select
+              className={styles.formControl}
+              value={form.rtc}
+              onChange={e => setForm(prev => ({ ...prev, rtc: e.target.value }))}
+              required
+            >
+              {RTC_OPTIONS.map(rtc => <option key={rtc} value={rtc}>{rtc}</option>)}
+            </select>
+          </label>
+          <label className={styles.formField}>
+            <span>Distance km</span>
+            <input
+              className={styles.formControl}
+              type="number"
+              step="0.1"
+              min="0.1"
+              value={form.totalDistanceKm}
+              onChange={e => setForm(prev => ({ ...prev, totalDistanceKm: e.target.value }))}
+              placeholder="12.5"
+              required
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Duration min</span>
+            <input
+              className={styles.formControl}
+              type="number"
+              min="1"
+              value={form.estimatedDurationMin}
+              onChange={e => setForm(prev => ({ ...prev, estimatedDurationMin: e.target.value }))}
+              placeholder="35"
+              required
+            />
+          </label>
+          <label className={styles.formField}>
+            <span>Stops</span>
+            <select
+              className={`${styles.formControl} ${styles.multiSelect}`}
+              multiple
+              value={form.stopIds}
+              onChange={e => setForm(prev => ({
+                ...prev,
+                stopIds: Array.from(e.target.selectedOptions, option => option.value),
+              }))}
+            >
+              {stops.map(stop => (
+                <option key={stop._id} value={stop._id}>
+                  {stop.name} ({stop.city})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.checkField}>
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
+            />
+            Active route
+          </label>
+        </div>
+        <button className={styles.primaryBtn} type="submit" disabled={saving || loading}>
+          {saving ? 'Adding...' : 'Add route'}
+        </button>
+      </form>
       {error && <div className={styles.errorBox}>{error}</div>}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -706,12 +954,12 @@ function HealthSection() {
           <div className={styles.healthGrid}>
             <HealthCard
               label="MongoDB"
-              status={health?.mongodb || health?.database}
+              status={health?.services?.mongodb || health?.mongodb || health?.database}
               icon="🍃"
             />
             <HealthCard
               label="Redis"
-              status={health?.redis || health?.cache}
+              status={health?.services?.redis || health?.redis || health?.cache}
               icon="⚡"
             />
             <HealthCard
@@ -770,7 +1018,13 @@ function HealthSection() {
 // ── Shared components ─────────────────────────────────────────────────────────
 
 function HealthCard({ label, status, icon, value }) {
-  const isOk = status === 'ok' || status === 'connected' || status === 'healthy';
+  const state = typeof status === 'object' ? status?.status : status;
+  const detail = typeof status === 'object'
+    ? status?.latency_ms !== null && status?.latency_ms !== undefined
+      ? `${status.latency_ms} ms`
+      : status?.error
+    : null;
+  const isOk = state === 'ok' || state === 'connected' || state === 'healthy';
   return (
     <div className={`${styles.healthCard} ${isOk ? styles.healthOk : styles.healthErr}`}>
       <span className={styles.healthIcon}>{icon}</span>
@@ -779,6 +1033,7 @@ function HealthCard({ label, status, icon, value }) {
         <p className={styles.healthStatus}>
           {value !== undefined ? value : (isOk ? '✓ Online' : '✗ Offline')}
         </p>
+        {detail && <p className={styles.healthLabel}>{detail}</p>}
       </div>
     </div>
   );
@@ -789,9 +1044,10 @@ function RoleBadge({ role }) {
     admin: styles.roleAdmin,
     driver: styles.roleDriver,
     passenger: styles.rolePassenger,
+    user: styles.rolePassenger,
   };
   return (
-    <span className={`${styles.roleBadge} ${colors[role] || ''}`}>{role}</span>
+    <span className={`${styles.roleBadge} ${colors[role] || ''}`}>{role === 'user' ? 'passenger' : role}</span>
   );
 }
 

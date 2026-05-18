@@ -5,6 +5,7 @@ import { FormInput } from '../../components/ui/FormInput';
 import styles from './Auth.module.css';
 
 const RTC_OPTIONS = ['GSRTC','MSRTC','KSRTC','UPSRTC','RSRTC','TNSTC','TSRTC','PRTC','Other'];
+const LICENSE_REGEX = /^[A-Z]{2}\d{2}-\d{4,8}$/;
 
 const passwordRules = [
   { id: 'len',     label: 'At least 8 characters',  test: p => p.length >= 8 },
@@ -19,7 +20,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
 
   // Step 1 form state
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', rtc: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', rtc: '', licenseNumber: '' });
   const [errors, setErrors] = useState({});
   const [showStrength, setShowStrength] = useState(false);
 
@@ -48,6 +49,9 @@ export default function RegisterPage() {
     else if (passwordRules.some(r => !r.test(form.password)))
       errs.password = 'Password does not meet all requirements';
     if (!form.rtc) errs.rtc = 'Please select your RTC';
+    if (form.role === 'driver' && !LICENSE_REGEX.test(form.licenseNumber)) {
+      errs.licenseNumber = 'Use format GJ01-20240001';
+    }
     return errs;
   }
 
@@ -264,6 +268,19 @@ export default function RegisterPage() {
               </div>
               {errors.rtc && <p className={styles.selectErrorMsg}>{errors.rtc}</p>}
             </div>
+
+            {form.role === 'driver' && (
+              <FormInput
+                label="License number"
+                type="text"
+                name="licenseNumber"
+                value={form.licenseNumber}
+                onChange={handleChange}
+                placeholder="GJ01-20240001"
+                error={errors.licenseNumber}
+                autoComplete="off"
+              />
+            )}
 
             {serverError && (
               <div className={styles.serverError}><span>{serverError}</span></div>
