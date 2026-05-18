@@ -33,8 +33,9 @@ export default function LoginPage() {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setLoading(true);
     try {
-      await login(form.email, form.password);
-      navigate('/dashboard');
+      const data = await login(form.email, form.password);
+      const payload = parseJwt(data.access_token);
+      navigate(getDashboardPath(payload?.role));
     } catch (err) {
       setServerError(err.message || 'Login failed. Please try again.');
     } finally {

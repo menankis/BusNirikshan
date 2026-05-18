@@ -56,7 +56,7 @@ export function AuthProvider({ children }) {
       isActive: true
     })) + ".dev"
     saveToken(devToken)
-    window.location.href = "/dashboard"
+    window.location.href = "/admin"
   }, [])
 
   return (
