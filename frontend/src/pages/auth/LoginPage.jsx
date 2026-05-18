@@ -33,9 +33,8 @@ export default function LoginPage() {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setLoading(true);
     try {
-      const data = await login(form.email, form.password);
-      const user = parseJwt(data.access_token);
-      navigate(getDashboardPath(user?.role), { replace: true });
+      await login(form.email, form.password);
+      navigate('/passenger');
     } catch (err) {
       setServerError(err.message || 'Login failed. Please try again.');
     } finally {
