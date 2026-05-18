@@ -877,6 +877,7 @@ function DriversSection() {
         <table className={styles.table}>
           <thead>
             <tr>
+              <th>Driver ID</th>
               <th>Name</th>
               <th>Email</th>
               <th>RTC</th>
@@ -887,11 +888,12 @@ function DriversSection() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className={styles.loadingRow}>Loading...</td></tr>
+              <tr><td colSpan={7} className={styles.loadingRow}>Loading...</td></tr>
             ) : drivers.length === 0 ? (
-              <tr><td colSpan={6} className={styles.loadingRow}>No drivers found</td></tr>
+              <tr><td colSpan={7} className={styles.loadingRow}>No drivers found</td></tr>
             ) : drivers.map(d => (
               <tr key={d._id}>
+                <td className={styles.monoCell}>{d._id}</td>
                 <td>{d.userId?.name || d.name || '—'}</td>
                 <td className={styles.emailCell}>{d.userId?.email || d.email || '—'}</td>
                 <td>{d.rtc || '—'}</td>
