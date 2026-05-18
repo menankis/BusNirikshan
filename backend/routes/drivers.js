@@ -9,6 +9,31 @@ const { parsePagination } = require("../utils/pagination");
 
 const router = express.Router();
 
+// Middleware to resolve "me" to the authenticated user's driver ID
+router.param("driverId", async (req, res, next, id) => {
+  if (id === "me") {
+    try {
+      if (!req.user || (!req.user._id && !req.user.userId)) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const uId = req.user._id || req.user.userId;
+      if (!mongoose.isValidObjectId(uId)) {
+        return res.status(400).json({ message: "Invalid user ID in authentication token. If you are in dev mode, check your DEV_USER_ID in .env" });
+      }
+      const driver = await Driver.findOne({ userId: uId });
+      if (!driver) {
+        return res.status(404).json({ message: "Driver profile not found for your account" });
+      }
+      req.params.driverId = driver._id.toString();
+      return next();
+    } catch (err) {
+      console.error("[Param: driverId]", err);
+      return res.status(500).json({ message: "Failed to resolve driver profile" });
+    }
+  }
+  next();
+});
+
 // how long (seconds) we cache driver data
 const CACHE_TTL = {
   LIST: 30,
