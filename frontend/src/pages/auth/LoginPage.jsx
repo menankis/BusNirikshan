@@ -34,7 +34,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(form.email, form.password);
-      navigate('/passenger');
+      navigate('/dashboard');
     } catch (err) {
       setServerError(err.message || 'Login failed. Please try again.');
     } finally {
