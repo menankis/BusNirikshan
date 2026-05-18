@@ -55,6 +55,7 @@ app.use("/api/locations", authorise, userApiLimiter, locationRoutes);
 app.use("/api/routes",    authorise, userApiLimiter, routeRoutes);
 
 app.use("/api/drivers",   authorise, userApiLimiter, driverRoutes);
+app.use("/api/driver",    authorise, userApiLimiter, driverRoutes); // alias for singular driver path
 app.use("/api/eta",       authorise, userApiLimiter, etaRoutes);
 app.use("/api/analytics", authorise, userApiLimiter, analyticsRoutes);
 app.use("/api/admin",     authorise, adminRoutes);               // no rate limiter for admin ops
